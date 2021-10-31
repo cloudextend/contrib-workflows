@@ -1,5 +1,4 @@
-import * as events from "./workflow.events";
-export { events };
+export * from "./workflow.events";
 
 export * from "./workflow-context";
 export * from "./workflow-step";

@@ -1,6 +1,6 @@
 module.exports = {
     displayName: "common-workflows",
-    preset: "../../../jest.preset.js",
+    preset: "../../../../jest.preset.js",
     setupFilesAfterEnv: ["<rootDir>/src/test-setup.ts"],
     globals: {
         "ts-jest": {
@@ -9,7 +9,7 @@ module.exports = {
             tsconfig: "<rootDir>/tsconfig.spec.json",
         },
     },
-    coverageDirectory: "../../../coverage/libs/common/workflows",
+    coverageDirectory: "../../../../coverage/libs/contrib/workflows/core",
 
     transform: { "^.+\\.(ts|js|html)$": "jest-preset-angular" },
     snapshotSerializers: [

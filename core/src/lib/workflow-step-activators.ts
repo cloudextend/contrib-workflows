@@ -1,6 +1,6 @@
 import { Selector } from "@ngrx/store";
 
-import { RxEvent } from "@cloudextend/common/events";
+import { RxEvent } from "@cloudextend/contrib/events";
 
 import { WorkflowContext } from ".";
 

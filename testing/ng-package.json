@@ -1,6 +1,6 @@
 {
-    "$schema": "../../../node_modules/ng-packagr/ng-package.schema.json",
-    "dest": "../../../dist/libs/testing/workflows",
+    "$schema": "../../../../node_modules/ng-packagr/ng-package.schema.json",
+    "dest": "../../../../dist/libs/contrib/workflows/testing",
     "lib": {
         "entryFile": "src/index.ts"
     }
