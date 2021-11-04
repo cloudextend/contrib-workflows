@@ -1,4 +1,5 @@
 import { RxEvent } from "@cloudextend/contrib/events";
+import { Observable } from "rxjs";
 
 import { WorkflowContext } from "./workflow-context";
 
@@ -10,9 +11,14 @@ export interface WorkflowStepActivateHandler<
     D4 = undefined,
     D5 = undefined
 > {
-    (context: T, d1?: D1, d2?: D2, d3?: D3, d4?: D4, d5?: D5):
-        | RxEvent
-        | RxEvent[];
+    (
+        context: T,
+        d1?: D1,
+        d2?: D2,
+        d3?: D3,
+        d4?: D4,
+        d5?: D5
+    ): Observable<RxEvent>;
 }
 
 export interface WorkflowStep<
