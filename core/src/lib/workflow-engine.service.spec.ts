@@ -4,9 +4,9 @@ import { Action, Store } from "@ngrx/store";
 import { MockStore, provideMockStore } from "@ngrx/store/testing";
 import { Observable, of } from "rxjs";
 
-import { busy, isFault } from "@cloudextend/common/core";
-import { getEventActionType, RxEvent } from "@cloudextend/common/events";
-import { NavigationEvent } from "@cloudextend/common/routes";
+import { busy, isFault } from "@cloudextend/contrib/core";
+import { getEventActionType, RxEvent } from "@cloudextend/contrib/events";
+import { NavigationEvent } from "@cloudextend/contrib/routes";
 import {
     callsTo,
     mockOf,
@@ -93,9 +93,9 @@ describe("WorkflowEngine", () => {
         ): ReturnType<typeof getSetup> & {
             workflowEvents$: Observable<WorkflowStepEvent>;
         };
-        function getExecutedWorkflow(
-            ...stepTypes: string[]
-        ): ReturnType<typeof getSetup> & {
+        function getExecutedWorkflow(...stepTypes: string[]): ReturnType<
+            typeof getSetup
+        > & {
             workflowEvents$: Observable<WorkflowStepEvent>;
         };
         function getExecutedWorkflow(
@@ -174,11 +174,8 @@ describe("WorkflowEngine", () => {
         });
 
         it("waits for an 'waitOn' step to complete", done => {
-            const {
-                activations,
-                awaiters,
-                workflowEvents$,
-            } = getExecutedWorkflow("exec", "waitOn", "exec");
+            const { activations, awaiters, workflowEvents$ } =
+                getExecutedWorkflow("exec", "waitOn", "exec");
 
             expect(activations[1]).toBeCalledTimes(1);
             expect(activations[2]).not.toHaveBeenCalled();

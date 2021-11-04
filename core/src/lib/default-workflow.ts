@@ -1,7 +1,7 @@
 // import { Injectable } from "@angular/core";
 // import { Store } from "@ngrx/store";
 
-import { views } from "@cloudextend/common/state";
+import { views } from "@cloudextend/contrib/state";
 
 import { createWorkflow } from "./workflow-builder";
 

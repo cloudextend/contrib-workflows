@@ -5,8 +5,8 @@ import { of } from "rxjs";
 import { filter } from "rxjs/operators";
 import { TestScheduler } from "rxjs/testing";
 
-import { busy, idle, Logger, LogService } from "@cloudextend/common/core";
-import { createBasicEvent, occurenceOf } from "@cloudextend/common/events";
+import { busy, idle, Logger, LogService } from "@cloudextend/contrib/core";
+import { createBasicEvent, occurenceOf } from "@cloudextend/contrib/events";
 import { provideMockLogService } from "@cloudextend/testing/utils";
 
 import { WorkflowContext } from "./workflow-context";

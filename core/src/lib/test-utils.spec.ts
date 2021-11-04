@@ -1,7 +1,7 @@
 import { Subject } from "rxjs";
 
-import { RxEvent } from "@cloudextend/common/events";
-import { navigate } from "@cloudextend/common/routes";
+import { RxEvent } from "@cloudextend/contrib/events";
+import { navigate } from "@cloudextend/contrib/views";
 
 import { Workflow } from "./workflow";
 import { createTestEvent } from "./workflow-engine.service.spec";

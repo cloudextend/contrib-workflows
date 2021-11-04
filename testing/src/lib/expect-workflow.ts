@@ -2,7 +2,7 @@ import {
     Workflow,
     WorkflowContext,
     WorkflowStep,
-} from "@cloudextend/common/workflows";
+} from "@cloudextend/contrib/workflows";
 
 import { WorkflowStepExpectations } from "./workflow-step-expectations";
 
@@ -16,7 +16,11 @@ export function expectWorkflow<T extends WorkflowContext = WorkflowContext>(
     workflow: Workflow<T>
 ) {
     return {
-        step: (index: number) =>
-            new WorkflowStepExpectations(workflow.steps[index]),
+        step: (labelOrIndex: string | number) =>
+            typeof labelOrIndex === "string"
+                ? new WorkflowStepExpectations(
+                      workflow.steps.findIndex(s => s.label === labelOrIndex)
+                  )
+                : new WorkflowStepExpectations(workflow.steps[labelOrIndex]),
     };
 }
