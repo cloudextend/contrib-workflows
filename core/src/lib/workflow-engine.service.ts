@@ -1,31 +1,19 @@
-import { Injectable } from "@angular/core";
+import { Inject, Injectable, InjectionToken, Optional } from "@angular/core";
 import { Actions, createEffect } from "@ngrx/effects";
 import { Store } from "@ngrx/store";
 import { Observable, Subject } from "rxjs";
 import { map, takeWhile } from "rxjs/operators";
 
 import { occurenceOf, onEvent } from "@cloudextend/contrib/events";
-import { navigate } from "@cloudextend/contrib/routes";
-import { views } from "@cloudextend/contrib/state";
+import { navigate } from "@cloudextend/contrib/views";
 
 import { Workflow } from "./workflow";
 import { WorkflowContext } from "./workflow-context";
 import { WorkflowStep } from "./workflow-step";
 import { skipSteps, nextStep, previousStep, goto } from "./workflow.events";
+import { WorkflowEvent, WorkflowEventType } from "./workflow-event";
 
-export enum WorkflowEventType {
-    beginWorkflow,
-    beginStep,
-    endStep,
-    endWorkflow,
-}
-
-export interface WorkflowEvent {
-    eventType: WorkflowEventType;
-    stepLabel?: string;
-    stepIndex?: number;
-    workflowName: string;
-}
+export const CE_HOME_PATH = new InjectionToken("CloudExtend_Home_Path");
 
 interface ExecutingWorkflow<T extends WorkflowContext = WorkflowContext> {
     context: T;
@@ -40,7 +28,10 @@ interface ExecutingWorkflow<T extends WorkflowContext = WorkflowContext> {
 export class WorkflowEngine {
     constructor(
         private readonly actions$: Actions,
-        private readonly store: Store
+        private readonly store: Store,
+        @Optional()
+        @Inject(CE_HOME_PATH)
+        private readonly homePath: string = "/"
     ) {}
 
     onNextStep$ = createEffect(
@@ -195,7 +186,7 @@ export class WorkflowEngine {
             });
     }
 
-    private executeOnCompleteAction() {
+    private executeOnCompleteAction(): void {
         if (this.current?.workflow.onCompletion) {
             const context = this.current.context;
             const completionEvents =
@@ -207,7 +198,9 @@ export class WorkflowEngine {
                 this.store.dispatch(completionEvents);
             }
         } else {
-            this.store.dispatch(views.home("#workflowEngine"));
+            this.store.dispatch(
+                navigate("#workflows/engine", { pathSegments: [this.homePath] })
+            );
         }
     }
 
