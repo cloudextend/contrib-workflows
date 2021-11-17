@@ -5,7 +5,7 @@ import { Observable, Subject } from "rxjs";
 import { map, takeWhile } from "rxjs/operators";
 
 import { occurenceOf, onEvent } from "@cloudextend/contrib/events";
-import { navigate } from "@cloudextend/contrib/views";
+import { navigate } from "@cloudextend/contrib/routing";
 
 import { Workflow } from "./workflow";
 import { WorkflowContext } from "./workflow-context";
