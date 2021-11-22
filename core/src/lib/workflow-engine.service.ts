@@ -5,7 +5,7 @@ import { Observable, Subject } from "rxjs";
 import { map, takeWhile } from "rxjs/operators";
 
 import { occurenceOf, onEvent } from "@cloudextend/contrib/events";
-import { navigate } from "@cloudextend/contrib/routing";
+import { navigation } from "@cloudextend/contrib/routing";
 
 import { Workflow } from "./workflow";
 import { WorkflowContext } from "./workflow-context";
@@ -164,7 +164,7 @@ export class WorkflowEngine {
                         this.gotoLabeledStep(
                             (event as ReturnType<typeof goto>).value
                         );
-                    } else if (occurenceOf(navigate, event)) {
+                    } else if (occurenceOf(navigation, event)) {
                         this.store.dispatch(event);
                         autoforward = false;
                     } else {
@@ -203,7 +203,9 @@ export class WorkflowEngine {
             }
         } else {
             this.store.dispatch(
-                navigate("#workflows/engine", { pathSegments: [this.homePath] })
+                navigation("#workflows/engine", {
+                    pathSegments: [this.homePath],
+                })
             );
         }
     }
