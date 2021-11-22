@@ -4,19 +4,17 @@ import { Action, Store } from "@ngrx/store";
 import { MockStore, provideMockStore } from "@ngrx/store/testing";
 import { Observable, of } from "rxjs";
 
-import { busy, isFault } from "@cloudextend/contrib/core";
 import { getEventActionType, RxEvent } from "@cloudextend/contrib/events";
-import { NavigationEvent } from "@cloudextend/contrib/routes";
-import {
-    callsTo,
-    mockOf,
-    provideMockLogService,
-} from "@cloudextend/testing/utils";
+import { NavigationEvent } from "@cloudextend/contrib/routing";
 
 import { getSetup } from "./test-utils.spec";
-import { WorkflowEngine, WorkflowStepEvent } from "./workflow-engine.service";
+import { WorkflowEngine } from "./workflow-engine.service";
 import { WorkflowStepAction } from "./workflow-step-activators";
 import { goto, nextStep, previousStep, skipSteps } from "./workflow.events";
+import { WorkflowEvent } from "./workflow-event";
+import { busy } from "@cloudextend/contrib/events/busy-state";
+
+const mockOf = (mock: unknown) => mock as jest.Mock;
 
 describe("WorkflowEngine", () => {
     //#region Setup
@@ -28,16 +26,11 @@ describe("WorkflowEngine", () => {
 
     beforeEach(() => {
         TestBed.configureTestingModule({
-            providers: [
-                provideMockLogService(),
-                provideMockStore(),
-                provideMockActions(() => actions$),
-            ],
+            providers: [provideMockStore(), provideMockActions(() => actions$)],
         });
         service = TestBed.inject(WorkflowEngine);
         store = TestBed.inject(MockStore);
         dispatchFn = jest.spyOn(store, "dispatch");
-        // dispatchFn.mockImplementation(action => console.log(action));
     });
     //#endregion
 
@@ -57,14 +50,14 @@ describe("WorkflowEngine", () => {
         ];
         //#endregion
         eventsAndTargetEffects.forEach(([event, targetEffect]) => {
-            it("navigates to /home when workflow nav event is dispatched", done => {
+            it("navigates to '/' when workflow nav event is dispatched", done => {
                 actions$ = of(event);
                 targetEffect(service).subscribe({
                     next: () => {
                         expect(dispatchFn).toHaveBeenCalledTimes(1);
-                        const dispatchedEvent = callsTo(dispatchFn).mostRecent()
-                            .args[0] as NavigationEvent;
-                        expect(dispatchedEvent.pathSegments).toEqual(["home"]);
+                        const dispatchedEvent = dispatchFn.mock
+                            .calls[0][0] as NavigationEvent;
+                        expect(dispatchedEvent.pathSegments).toEqual(["/"]);
                         done();
                     },
                     error: done.fail,
@@ -76,10 +69,7 @@ describe("WorkflowEngine", () => {
             actions$ = of(goto("UTWF", "MyStep"));
             service.onGoTo$.subscribe({
                 next: () => done.fail(),
-                error: e => {
-                    expect(isFault(e)).toBeTruthy();
-                    done();
-                },
+                error: () => done(),
             });
         });
     });
@@ -87,22 +77,26 @@ describe("WorkflowEngine", () => {
     describe("Given an active workflow", () => {
         //#region Setup Workflow
 
+        // This function creates a mock workflow with the given types of steps.
+        // For example, getExecutedWorkflow(["select", "exec"]) returns a mocked workflow
+        // that has select step first and then an exec step.
+        // Look at the getSetup method implementaton for the composition of these mock setps.
         function getExecutedWorkflow(
             stepTypes: string[],
             onCompletion: WorkflowStepAction
         ): ReturnType<typeof getSetup> & {
-            workflowEvents$: Observable<WorkflowStepEvent>;
+            workflowEvents$: Observable<WorkflowEvent>;
         };
         function getExecutedWorkflow(...stepTypes: string[]): ReturnType<
             typeof getSetup
         > & {
-            workflowEvents$: Observable<WorkflowStepEvent>;
+            workflowEvents$: Observable<WorkflowEvent>;
         };
         function getExecutedWorkflow(
             stepTypesOrFirstStep: string | string[],
             ...args: unknown[]
         ): ReturnType<typeof getSetup> & {
-            workflowEvents$: Observable<WorkflowStepEvent>;
+            workflowEvents$: Observable<WorkflowEvent>;
         } {
             const stepTypes = Array.isArray(stepTypesOrFirstStep)
                 ? stepTypesOrFirstStep
@@ -118,7 +112,8 @@ describe("WorkflowEngine", () => {
         }
 
         function getDispatchedEvent(): RxEvent | undefined {
-            return callsTo(dispatchFn).mostRecent()?.args[0];
+            const calls = dispatchFn.mock.calls;
+            return calls[calls.length - 1][0];
         }
 
         //#endregion
@@ -230,7 +225,7 @@ describe("WorkflowEngine", () => {
 
             service.executeWorkflow(workflow);
 
-            const context = callsTo(activations[2]).mostRecent().args[0];
+            const context = activations[2].mock.calls[0][0];
             expect(context.unit_test_flag).toEqual("123456");
         });
 
@@ -286,6 +281,11 @@ describe("WorkflowEngine", () => {
                     "exec.view",
                 ]);
 
+                // Prevent the warnning from being printed.
+                const warn = console.warn;
+                // eslint-disable-next-line @typescript-eslint/no-empty-function
+                console.warn = () => {};
+
                 service
                     .executeWorkflow(workflow, { ignoreGotoLabel: true })
                     .subscribe();
@@ -299,6 +299,8 @@ describe("WorkflowEngine", () => {
                 actions$ = of(go("STEP_" + 2));
                 service.onGoTo$.subscribe();
                 expect(activations[2]).not.toHaveBeenCalled();
+
+                console.warn = warn;
             });
 
             it("will throw a fault if an unknown step is request", done => {
@@ -307,10 +309,7 @@ describe("WorkflowEngine", () => {
                 actions$ = of(goto("UTWF", "INVALID_STEP"));
                 service.onGoTo$.subscribe({
                     next: () => done.fail(),
-                    error: e => {
-                        expect(isFault(e)).toBeTruthy();
-                        done();
-                    },
+                    error: () => done(),
                 });
             });
 
@@ -371,15 +370,9 @@ describe("WorkflowEngine", () => {
                 flush();
                 expect(dispatchFn).toHaveBeenCalledTimes(3);
 
-                expect(callsTo(dispatchFn).argsOf(0).args[0].verb).toEqual(
-                    "C1"
-                );
-                expect(callsTo(dispatchFn).argsOf(1).args[0].verb).toEqual(
-                    "C2"
-                );
-                expect(callsTo(dispatchFn).argsOf(2).args[0].verb).toEqual(
-                    "C3"
-                );
+                expect(dispatchFn.mock.calls[0][0].verb).toEqual("C1");
+                expect(dispatchFn.mock.calls[1][0].verb).toEqual("C2");
+                expect(dispatchFn.mock.calls[2][0].verb).toEqual("C3");
             }));
         });
     });

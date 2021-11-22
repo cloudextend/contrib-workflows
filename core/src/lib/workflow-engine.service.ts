@@ -13,7 +13,7 @@ import { WorkflowStep } from "./workflow-step";
 import { skipSteps, nextStep, previousStep, goto } from "./workflow.events";
 import { WorkflowEvent, WorkflowEventType } from "./workflow-event";
 
-export const CE_HOME_PATH = new InjectionToken("CloudExtend_Home_Path");
+export const CE_WF_FALLBACK_PATH = new InjectionToken("CloudExtend_Home_Path");
 
 interface ExecutingWorkflow<T extends WorkflowContext = WorkflowContext> {
     context: T;
@@ -30,9 +30,13 @@ export class WorkflowEngine {
         private readonly actions$: Actions,
         private readonly store: Store,
         @Optional()
-        @Inject(CE_HOME_PATH)
-        private readonly homePath: string = "/"
-    ) {}
+        @Inject(CE_WF_FALLBACK_PATH)
+        fallbackPath: string
+    ) {
+        this.homePath = fallbackPath ?? "/";
+    }
+
+    private readonly homePath: string;
 
     onNextStep$ = createEffect(
         () =>
@@ -221,7 +225,7 @@ export class WorkflowEngine {
         if (this.current.ignoreGoTo) {
             console.warn(
                 `Unable to navigate to '${label}' step.` +
-                    "'ignoreGotoLabel' may have been specified when " +
+                    "'ignoreGotoLabel' has been specified when " +
                     "calling 'executeWorkflow'."
             );
             return;

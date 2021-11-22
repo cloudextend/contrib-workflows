@@ -6,7 +6,7 @@ import { WorkflowStep } from "./workflow-step";
 import { WorkflowStepSelectorFactory } from "./workflow-step-activators";
 import { Type } from "@angular/core";
 
-import { busy, idle } from "@cloudextend/contrib/events/common";
+import { busy, idle } from "@cloudextend/contrib/events/busy-state";
 import { RxEvent } from "@cloudextend/contrib/events";
 import { nextStep } from "./workflow.events";
 

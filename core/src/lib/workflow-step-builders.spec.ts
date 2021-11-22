@@ -5,24 +5,21 @@ import { of } from "rxjs";
 import { filter } from "rxjs/operators";
 import { TestScheduler } from "rxjs/testing";
 
-import { busy, idle, Logger, LogService } from "@cloudextend/contrib/core";
 import { createBasicEvent, occurenceOf } from "@cloudextend/contrib/events";
-import { provideMockLogService } from "@cloudextend/testing/utils";
 
 import { WorkflowContext } from "./workflow-context";
 import { exec, select, waitOn } from "./workflow-step-builders";
 import { nextStep } from "./workflow.events";
+import { busy, idle } from "@cloudextend/contrib/events/busy-state";
 
 describe("Workflow Step Builders", () => {
     let store: Store;
-    let logger: Logger;
 
     beforeEach(() => {
         TestBed.configureTestingModule({
-            providers: [provideMockStore(), provideMockLogService()],
+            providers: [provideMockStore()],
         });
         store = TestBed.inject(Store);
-        logger = TestBed.inject(LogService).createLogger("UT");
     });
 
     describe("exec", () => {
@@ -34,10 +31,9 @@ describe("Workflow Step Builders", () => {
             const expectedMarbles = "(a|)";
 
             testScheduler.run(({ expectObservable }) => {
-                expectObservable(step.activate({ workflowName: "UT" })).toBe(
-                    expectedMarbles,
-                    expectedEvents
-                );
+                expectObservable(
+                    step.activate(createTestWorkflowContext())
+                ).toBe(expectedMarbles, expectedEvents);
                 expect(handler).toHaveBeenCalledTimes(1);
             });
         });
@@ -74,7 +70,7 @@ describe("Workflow Step Builders", () => {
             const expectedEvents = { a: eventA };
             const expectedMarbles = "(a|)";
 
-            const step = select("Test", () => multiEventSelector, store);
+            const step = select("Test", () => multiEventSelector);
             const context = createTestWorkflowContext();
 
             testScheduler.run(({ expectObservable }) => {
@@ -92,13 +88,12 @@ describe("Workflow Step Builders", () => {
                 a => a
             );
 
-            const step = select(
-                "Test",
-                () => multiEventSelector,
-                undefined as unknown as Store
-            );
-            const context = createTestWorkflowContext();
-            expect(() => step.activate(context)).toThrow();
+            const step = select("Test", () => multiEventSelector);
+            expect(() =>
+                step.activate({
+                    workflowName: "UT",
+                } as unknown as WorkflowContext)
+            ).toThrow();
         });
 
         it("streams events one by one whe multiple events are returned", () => {
@@ -113,7 +108,7 @@ describe("Workflow Step Builders", () => {
             const expectedEvents = { a: eventA, b: eventB };
             const expectedMarbles = "(ab|)";
 
-            const step = select("Test", () => multiEventSelector, store);
+            const step = select("Test", () => multiEventSelector);
             const context = createTestWorkflowContext();
 
             testScheduler.run(({ expectObservable }) => {
@@ -171,7 +166,6 @@ describe("Workflow Step Builders", () => {
 
     function createTestWorkflowContext(): WorkflowContext {
         return {
-            logger,
             store,
             workflowName: "UT",
             inject: TestBed.inject,
