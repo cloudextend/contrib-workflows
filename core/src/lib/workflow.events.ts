@@ -19,3 +19,6 @@ export const workflowEnding = declareEvent(
     "common:workflows:Ending",
     args<string>("workflow name")
 );
+
+export const idle = declareEvent("#workflow:idle");
+export const busy = declareEvent("#workflow:busy", args<{ message: string }>());

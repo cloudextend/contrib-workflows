@@ -1,12 +1,12 @@
-export enum WorkflowEventType {
+export enum WorkflowChangeType {
     beginWorkflow,
     beginStep,
     endStep,
     endWorkflow,
 }
 
-export interface WorkflowEvent {
-    eventType: WorkflowEventType;
+export interface WorkflowChange {
+    type: WorkflowChangeType;
     stepLabel?: string;
     stepIndex?: number;
     workflowName: string;

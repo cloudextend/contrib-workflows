@@ -11,7 +11,7 @@ import { Workflow } from "./workflow";
 import { WorkflowContext } from "./workflow-context";
 import { WorkflowStep } from "./workflow-step";
 import { skipSteps, nextStep, previousStep, goto } from "./workflow.events";
-import { WorkflowEvent, WorkflowEventType } from "./workflow-event";
+import { WorkflowChange, WorkflowChangeType } from "./workflow-change";
 
 export const CE_WF_FALLBACK_PATH = new InjectionToken("CloudExtend_Home_Path");
 
@@ -21,7 +21,7 @@ interface ExecutingWorkflow<T extends WorkflowContext = WorkflowContext> {
     stepIndexByLabel: Map<string, number>;
     ignoreGoTo?: boolean;
     workflow: Workflow<T>;
-    workflowEvents$: Subject<WorkflowEvent>;
+    workflowEvents$: Subject<WorkflowChange>;
 }
 
 @Injectable({ providedIn: "root" })
@@ -91,13 +91,13 @@ export class WorkflowEngine {
     public executeWorkflow(
         workflow: Workflow,
         options?: { ignoreGotoLabel?: boolean }
-    ): Observable<WorkflowEvent> {
+    ): Observable<WorkflowChange> {
         const context = { workflowName: workflow.name, store: this.store };
         const stepIndexByLabel = options?.ignoreGotoLabel
             ? new Map<string, number>()
             : WorkflowEngine.createStepIndexByLabelMap(workflow.steps);
 
-        const workflowEvents$ = new Subject<WorkflowEvent>();
+        const workflowEvents$ = new Subject<WorkflowChange>();
         this.current = {
             workflow,
             context,
@@ -108,7 +108,7 @@ export class WorkflowEngine {
         };
 
         workflowEvents$.next({
-            eventType: WorkflowEventType.beginWorkflow,
+            type: WorkflowChangeType.beginWorkflow,
             workflowName: workflow.name,
         });
         this.activateNextStep();
@@ -125,7 +125,7 @@ export class WorkflowEngine {
             current.nextStepIndex = 0;
             this.executeOnCompleteAction();
             current.workflowEvents$.next({
-                eventType: WorkflowEventType.endWorkflow,
+                type: WorkflowChangeType.endWorkflow,
                 workflowName: current.workflow.name,
             });
             current.workflowEvents$.complete();
@@ -142,7 +142,7 @@ export class WorkflowEngine {
         const currentStep = current.workflow.steps[currentStepIndex];
 
         current.workflowEvents$.next({
-            eventType: WorkflowEventType.beginStep,
+            type: WorkflowChangeType.beginStep,
             workflowName: current.workflow.name,
         });
 
@@ -172,7 +172,7 @@ export class WorkflowEngine {
                     }
 
                     current.workflowEvents$.next({
-                        eventType: WorkflowEventType.endStep,
+                        type: WorkflowChangeType.endStep,
                         stepIndex: currentStepIndex,
                         stepLabel: currentStep.label,
                         workflowName: current.workflow.name,
