@@ -9,24 +9,6 @@
             ],
             "parserOptions": {
                 "project": ["libs/contrib/workflows/core/tsconfig.*?.json"]
-            },
-            "rules": {
-                "@angular-eslint/directive-selector": [
-                    "error",
-                    {
-                        "type": "attribute",
-                        "prefix": "cloudextend",
-                        "style": "camelCase"
-                    }
-                ],
-                "@angular-eslint/component-selector": [
-                    "error",
-                    {
-                        "type": "element",
-                        "prefix": "cloudextend",
-                        "style": "kebab-case"
-                    }
-                ]
             }
         },
         {
