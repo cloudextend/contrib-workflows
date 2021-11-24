@@ -2,7 +2,7 @@ import { Selector } from "@ngrx/store";
 
 import { RxEvent } from "@cloudextend/contrib/events";
 
-import { WorkflowContext } from ".";
+import { WorkflowContext } from "./workflow-context";
 
 export type WorkflowStepAction<
     ContextType extends WorkflowContext = WorkflowContext

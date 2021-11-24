@@ -29,7 +29,7 @@ export class WorkflowStepExpectations<
                     assertions(emittedEvents);
                     done();
                 } catch (e) {
-                    done.fail(e);
+                    done.fail(e as unknown as string | { message: string });
                 }
             },
         });
@@ -69,7 +69,7 @@ export class WorkflowStepExpectations<
                     assertions(emittedEvents[0]);
                     done();
                 } catch (e) {
-                    done.fail(e);
+                    done.fail(e as unknown as string | { message: string });
                 }
             },
         });
