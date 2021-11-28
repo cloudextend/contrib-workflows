@@ -3,10 +3,9 @@ import { createSelector, Store } from "@ngrx/store";
 import { provideMockStore } from "@ngrx/store/testing";
 import { TestScheduler } from "rxjs/testing";
 
-import { createBasicEvent } from "@cloudextend/contrib/events";
-
 import { WorkflowContext } from "../workflow-context";
 import { select } from "./select.step-builder";
+import { createBasicEvent } from "./utility.spec";
 
 describe("Workflow Step Builders", () => {
     let store: Store;

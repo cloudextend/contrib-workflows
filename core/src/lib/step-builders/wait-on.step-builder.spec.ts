@@ -5,11 +5,12 @@ import { of } from "rxjs";
 import { filter } from "rxjs/operators";
 import { TestScheduler } from "rxjs/testing";
 
-import { createBasicEvent, occurenceOf } from "@cloudextend/contrib/events";
+import { occurenceOf } from "@cloudextend/contrib/events";
 
 import { WorkflowContext } from "../workflow-context";
 import { waitOn } from "./wait-on.step-builder";
-import { busy, idle } from "@cloudextend/contrib/events/busy-state";
+import { busy, idle } from "../workflow.events";
+import { createBasicEvent } from "./utility.spec";
 
 describe("Workflow Step Builders", () => {
     let store: Store;

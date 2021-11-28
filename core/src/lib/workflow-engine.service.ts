@@ -2,9 +2,9 @@ import { Inject, Injectable, InjectionToken, Optional } from "@angular/core";
 import { Actions, createEffect } from "@ngrx/effects";
 import { Store } from "@ngrx/store";
 import { Observable, Subject } from "rxjs";
-import { map, takeWhile } from "rxjs/operators";
+import { filter, map, takeWhile } from "rxjs/operators";
 
-import { occurenceOf, onEvent } from "@cloudextend/contrib/events";
+import { occurenceOf, onEvent, RxEvent } from "@cloudextend/contrib/events";
 import { navigation } from "@cloudextend/contrib/routing";
 
 import { Workflow } from "./workflow";
@@ -12,6 +12,7 @@ import { WorkflowContext } from "./workflow-context";
 import { WorkflowStep } from "./workflow-step";
 import { skipSteps, nextStep, previousStep, goto } from "./workflow.events";
 import { WorkflowChange, WorkflowChangeType } from "./workflow-change";
+import { blockedUntil } from "./workflow.events.internal";
 
 export const CE_WF_FALLBACK_PATH = new InjectionToken("CloudExtend_Home_Path");
 
@@ -20,6 +21,7 @@ interface ExecutingWorkflow<T extends WorkflowContext = WorkflowContext> {
     nextStepIndex: number;
     stepIndexByLabel: Map<string, number>;
     ignoreGoTo?: boolean;
+    blockUntilEvent?: string;
     workflow: Workflow<T>;
     workflowEvents$: Subject<WorkflowChange>;
 }
@@ -86,6 +88,34 @@ export class WorkflowEngine {
         { dispatch: false }
     );
 
+    onBlockedUntil$ = createEffect(
+        () =>
+            this.actions$.pipe(
+                filter(
+                    event =>
+                        !!this.current &&
+                        !!this.current.blockUntilEvent &&
+                        (event as RxEvent).verb === this.current.blockUntilEvent
+                ),
+                map(() => {
+                    const current = this.current;
+                    if (!current) return; // only to appease strict type checking
+
+                    const currentWf = current.workflow;
+                    current.workflowEvents$.next({
+                        type: WorkflowChangeType.endStep,
+                        stepIndex: current.nextStepIndex,
+                        stepLabel:
+                            currentWf.steps[current.nextStepIndex]?.label,
+                        workflowName: currentWf.name,
+                    });
+                    this.gotoNextStep();
+                    this.activateNextStep();
+                })
+            ),
+        { dispatch: false }
+    );
+
     private current: ExecutingWorkflow | undefined;
 
     public executeWorkflow(
@@ -146,10 +176,16 @@ export class WorkflowEngine {
             workflowName: current.workflow.name,
         });
 
+        // Stay subscribed to a step only if it has not been navigated off of externally (by raising
+        // a WF event extenrally, or it's not waiting for a specific event).
+        const staySubscribed = () =>
+            currentStepIndex === current.nextStepIndex &&
+            !current.blockUntilEvent;
+
         let autoforward = true;
         currentStep
             .activate(current.context)
-            .pipe(takeWhile(() => currentStepIndex === current.nextStepIndex))
+            .pipe(takeWhile(staySubscribed))
             .subscribe({
                 next: event => {
                     if (occurenceOf(nextStep, event)) {
@@ -167,6 +203,13 @@ export class WorkflowEngine {
                     } else if (occurenceOf(navigation, event)) {
                         this.store.dispatch(event);
                         autoforward = false;
+                    } else if (occurenceOf(blockedUntil, event)) {
+                        autoforward = false;
+                        current.blockUntilEvent = (
+                            event as ReturnType<typeof blockedUntil>
+                        ).value;
+                        // don't dispatch endStep event
+                        return;
                     } else {
                         this.store.dispatch(event);
                     }
