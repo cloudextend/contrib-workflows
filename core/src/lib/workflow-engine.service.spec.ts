@@ -4,15 +4,20 @@ import { Action, Store } from "@ngrx/store";
 import { MockStore, provideMockStore } from "@ngrx/store/testing";
 import { Observable, of } from "rxjs";
 
-import { getEventActionType, RxEvent } from "@cloudextend/contrib/events";
+import { RxEvent } from "@cloudextend/contrib/events";
 import { NavigationEvent } from "@cloudextend/contrib/routing";
 
 import { getSetup } from "./test-utils.spec";
 import { WorkflowEngine } from "./workflow-engine.service";
 import { WorkflowStepAction } from "./workflow-step-activators";
-import { goto, nextStep, previousStep, skipSteps } from "./workflow.events";
-import { WorkflowEvent } from "./workflow-event";
-import { busy } from "@cloudextend/contrib/events/busy-state";
+import {
+    busy,
+    goto,
+    nextStep,
+    previousStep,
+    skipSteps,
+} from "./workflow.events";
+import { idle, WorkflowUpdate } from ".";
 
 const mockOf = (mock: unknown) => mock as jest.Mock;
 
@@ -75,49 +80,6 @@ describe("WorkflowEngine", () => {
     });
 
     describe("Given an active workflow", () => {
-        //#region Setup Workflow
-
-        // This function creates a mock workflow with the given types of steps.
-        // For example, getExecutedWorkflow(["select", "exec"]) returns a mocked workflow
-        // that has select step first and then an exec step.
-        // Look at the getSetup method implementaton for the composition of these mock setps.
-        function getExecutedWorkflow(
-            stepTypes: string[],
-            onCompletion: WorkflowStepAction
-        ): ReturnType<typeof getSetup> & {
-            workflowEvents$: Observable<WorkflowEvent>;
-        };
-        function getExecutedWorkflow(...stepTypes: string[]): ReturnType<
-            typeof getSetup
-        > & {
-            workflowEvents$: Observable<WorkflowEvent>;
-        };
-        function getExecutedWorkflow(
-            stepTypesOrFirstStep: string | string[],
-            ...args: unknown[]
-        ): ReturnType<typeof getSetup> & {
-            workflowEvents$: Observable<WorkflowEvent>;
-        } {
-            const stepTypes = Array.isArray(stepTypesOrFirstStep)
-                ? stepTypesOrFirstStep
-                : [stepTypesOrFirstStep, ...(args as string[])];
-            const onCompletion = Array.isArray(stepTypesOrFirstStep)
-                ? (args[0] as WorkflowStepAction)
-                : undefined;
-
-            const setup = getSetup(stepTypes, onCompletion);
-            const workflowEvents$ = service.executeWorkflow(setup.workflow);
-            workflowEvents$.subscribe();
-            return { ...setup, workflowEvents$ };
-        }
-
-        function getDispatchedEvent(): RxEvent | undefined {
-            const calls = dispatchFn.mock.calls;
-            return calls[calls.length - 1][0];
-        }
-
-        //#endregion
-
         it("executes the first step on start", () => {
             const { activations } = getExecutedWorkflow("exec", "exec");
             expect(activations[0]).toHaveBeenCalledTimes(1);
@@ -169,12 +131,12 @@ describe("WorkflowEngine", () => {
         });
 
         it("waits for an 'waitOn' step to complete", done => {
-            const { activations, awaiters, workflowEvents$ } =
+            const { activations, awaiters, WorkflowChanges$ } =
                 getExecutedWorkflow("exec", "waitOn", "exec");
 
             expect(activations[1]).toBeCalledTimes(1);
             expect(activations[2]).not.toHaveBeenCalled();
-            workflowEvents$.subscribe({
+            WorkflowChanges$.subscribe({
                 complete: () => {
                     expect(activations[2]).toHaveBeenCalledTimes(1);
                     done();
@@ -210,6 +172,43 @@ describe("WorkflowEngine", () => {
 
             awaiters[0].complete();
             expect(activations[1]).toHaveBeenCalled();
+        }));
+
+        it("can wait for a specific event to be fired", fakeAsync(() => {
+            const { activations } = getExecutedWorkflow(
+                "exec",
+                "waitFor",
+                "exec"
+            );
+
+            expect(activations[0]).toHaveBeenCalledTimes(1);
+            expect(activations[2]).not.toHaveBeenCalled();
+
+            actions$ = of(createTestEvent("blocker1"));
+            service.onBlockedUntil$.subscribe();
+            flush();
+
+            expect(activations[2]).toHaveBeenCalledTimes(1);
+        }));
+
+        it("can be put to busy state until a specific event is fired", fakeAsync(() => {
+            const { activations } = getExecutedWorkflow(
+                "exec",
+                "waitFor.busy",
+                "exec"
+            );
+
+            expect(activations[0]).toHaveBeenCalledTimes(1);
+            expect(activations[2]).not.toHaveBeenCalled();
+
+            expect(dispatchFn.mock.calls[0][0].verb).toBe("E0");
+            expect(dispatchFn.mock.calls[1][0].verb).toBe(busy.verb);
+
+            actions$ = of(createTestEvent("blocker1"));
+            service.onBlockedUntil$.subscribe();
+            flush();
+
+            expect(dispatchFn.mock.calls[2][0].verb).toBe(idle.verb);
         }));
 
         it("can pass parameters between steps using context", () => {
@@ -355,12 +354,12 @@ describe("WorkflowEngine", () => {
                     createTestEvent("C2"),
                     createTestEvent("C3"),
                 ]);
-                const { awaiters, workflowEvents$ } = getExecutedWorkflow(
+                const { awaiters, WorkflowChanges$ } = getExecutedWorkflow(
                     ["waitOn"],
                     onCompletionFn
                 );
 
-                workflowEvents$.subscribe(stepEvent => {
+                WorkflowChanges$.subscribe(stepEvent => {
                     if (stepEvent.stepIndex === 0) {
                         dispatchFn.mockReset();
                     }
@@ -376,12 +375,55 @@ describe("WorkflowEngine", () => {
             }));
         });
     });
+
+    //#region Setup Workflow
+
+    // This function creates a mock workflow with the given types of steps.
+    // For example, getExecutedWorkflow(["select", "exec"]) returns a mocked workflow
+    // that has select step first and then an exec step.
+    // Look at the getSetup method implementaton for the composition of these mock setps.
+    function getExecutedWorkflow(
+        stepTypes: string[],
+        onCompletion: WorkflowStepAction
+    ): ReturnType<typeof getSetup> & {
+        WorkflowChanges$: Observable<WorkflowUpdate>;
+    };
+    function getExecutedWorkflow(...stepTypes: string[]): ReturnType<
+        typeof getSetup
+    > & {
+        WorkflowChanges$: Observable<WorkflowUpdate>;
+    };
+    function getExecutedWorkflow(
+        stepTypesOrFirstStep: string | string[],
+        ...args: unknown[]
+    ): ReturnType<typeof getSetup> & {
+        WorkflowChanges$: Observable<WorkflowUpdate>;
+    } {
+        const stepTypes = Array.isArray(stepTypesOrFirstStep)
+            ? stepTypesOrFirstStep
+            : [stepTypesOrFirstStep, ...(args as string[])];
+        const onCompletion = Array.isArray(stepTypesOrFirstStep)
+            ? (args[0] as WorkflowStepAction)
+            : undefined;
+
+        const setup = getSetup(stepTypes, onCompletion);
+        const WorkflowChanges$ = service.executeWorkflow(setup.workflow);
+        WorkflowChanges$.subscribe();
+        return { ...setup, WorkflowChanges$ };
+    }
+
+    function getDispatchedEvent(): RxEvent | undefined {
+        const calls = dispatchFn.mock.calls;
+        return calls[calls.length - 1][0];
+    }
+
+    //#endregion
 });
 
 export function createTestEvent(verb: string) {
     return {
         verb,
         source: "UNIT TEST",
-        type: getEventActionType("UNIT TEST", verb),
+        type: `[UNIT TEST] ${verb}`,
     } as RxEvent;
 }

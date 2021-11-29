@@ -1,12 +1,12 @@
-export enum WorkflowChangeType {
+export enum WorkflowUpdateType {
     beginWorkflow,
     beginStep,
     endStep,
     endWorkflow,
 }
 
-export interface WorkflowChange {
-    type: WorkflowChangeType;
+export interface WorkflowUpdate {
+    type: WorkflowUpdateType;
     stepLabel?: string;
     stepIndex?: number;
     workflowName: string;
