@@ -4,7 +4,12 @@ import { Store } from "@ngrx/store";
 import { Observable, Subject } from "rxjs";
 import { filter, map, takeWhile } from "rxjs/operators";
 
-import { occurenceOf, onEvent, RxEvent } from "@cloudextend/contrib/events";
+import {
+    EventCreator,
+    occurenceOf,
+    onEvent,
+    RxEvent,
+} from "@cloudextend/contrib/events";
 import { navigation } from "@cloudextend/contrib/routing";
 
 import { Workflow } from "./workflow";
@@ -16,6 +21,8 @@ import { blockedUntil } from "./workflow.events.internal";
 import { idle } from ".";
 
 export const CE_WF_FALLBACK_PATH = new InjectionToken("CloudExtend_Home_Path");
+
+export type WorkflowBuilder = (event: RxEvent) => Workflow;
 
 interface ExecutingWorkflow<T extends WorkflowContext = WorkflowContext> {
     context: T;
@@ -119,7 +126,30 @@ export class WorkflowEngine {
         { dispatch: false }
     );
 
+    onWorkflowTrigger$ = createEffect(
+        () =>
+            this.actions$.pipe(
+                filter(
+                    event =>
+                        !!(event as RxEvent).verb &&
+                        this.workflowBuilderByEvent.has((event as RxEvent).verb)
+                ),
+                map(event => {
+                    const builder = this.workflowBuilderByEvent.get(
+                        (event as RxEvent).verb
+                    );
+                    return this.executeWorkflow(builder!(event as RxEvent));
+                })
+            ),
+        { dispatch: false }
+    );
+
     private current: ExecutingWorkflow | undefined;
+
+    private readonly workflowBuilderByEvent = new Map<
+        string,
+        WorkflowBuilder
+    >();
 
     public executeWorkflow(
         workflow: Workflow,
@@ -146,6 +176,20 @@ export class WorkflowEngine {
         });
         this.activateNextStep();
         return workflowEvents$;
+    }
+
+    public registerWorkflow(
+        event: EventCreator,
+        builder: (event: RxEvent) => Workflow
+    ) {
+        if (!event?.verb) {
+            throw new Error("Triggering event cannot be null or undefined.");
+        }
+        if (!builder) {
+            throw new Error("The builder cannot be null or undefined.");
+        }
+
+        this.workflowBuilderByEvent.set(event.verb, builder);
     }
 
     private activateNextStep(): void {

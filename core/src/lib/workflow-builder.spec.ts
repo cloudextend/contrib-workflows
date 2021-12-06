@@ -1,4 +1,4 @@
-import { getSetup } from "./test-utils.spec";
+import { getSetup } from "./test-wf.utils.spec";
 import { getWorkflowActions } from "./workflow-builder";
 import { goto, nextStep, previousStep, skipSteps } from "./workflow.events";
 

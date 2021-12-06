@@ -1,9 +1,10 @@
 import { TestBed } from "@angular/core/testing";
 import { declareEvent } from "@cloudextend/contrib/events";
 import { Store } from "@ngrx/store";
-import { provideMockStore } from "@ngrx/store/testing";
+import { MockStore, provideMockStore } from "@ngrx/store/testing";
 import { TestScheduler } from "rxjs/testing";
-import { busy, WorkflowContext, WorkflowStep } from "..";
+import { WorkflowContext } from "../workflow-context";
+import { busy } from "../workflow.events";
 import { blockedUntil } from "../workflow.events.internal";
 import { waitFor } from "./wait-for.builder";
 
@@ -15,8 +16,9 @@ describe("waitFor Step Builders", () => {
     beforeEach(() => {
         TestBed.configureTestingModule({
             providers: [provideMockStore()],
+            teardown: { destroyAfterEach: false },
         });
-        const store = TestBed.inject(Store);
+        const store = TestBed.inject(MockStore);
 
         context = { workflowName: "UTWF", store };
     });

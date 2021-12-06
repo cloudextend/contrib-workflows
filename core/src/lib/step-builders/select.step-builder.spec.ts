@@ -5,7 +5,14 @@ import { TestScheduler } from "rxjs/testing";
 
 import { WorkflowContext } from "../workflow-context";
 import { select } from "./select.step-builder";
-import { createBasicEvent } from "./utility.spec";
+import { createBasicEvent } from "../test-events.utils.spec";
+import { stat } from "fs";
+import { RxEvent } from "@cloudextend/contrib/events";
+
+interface DummyFeat1 {
+    val1: string;
+    val2: string;
+}
 
 describe("Workflow Step Builders", () => {
     let store: Store;
@@ -13,6 +20,7 @@ describe("Workflow Step Builders", () => {
     beforeEach(() => {
         TestBed.configureTestingModule({
             providers: [provideMockStore()],
+            teardown: { destroyAfterEach: false },
         });
         store = TestBed.inject(Store);
     });
@@ -20,15 +28,30 @@ describe("Workflow Step Builders", () => {
     describe("select", () => {
         it("creates a WF step that returns the result of a ngrx selector", () => {
             const eventA = createBasicEvent("UT", "A");
-            const multiEventSelector = createSelector(
-                () => eventA,
-                a => a
-            );
+            const ngrxSelector = createSelector(() => eventA);
 
             const expectedEvents = { a: eventA };
             const expectedMarbles = "(a|)";
 
-            const step = select("Test", () => multiEventSelector);
+            const step = select("Test", () => ngrxSelector);
+            const context = createTestWorkflowContext();
+
+            testScheduler.run(({ expectObservable }) => {
+                expectObservable(step.activate(context)).toBe(
+                    expectedMarbles,
+                    expectedEvents
+                );
+            });
+        });
+
+        it("it supports simple/custom selectors", () => {
+            const eventA = createBasicEvent("UT", "A");
+            const customSelector = (/* state */) => eventA;
+
+            const expectedEvents = { a: eventA };
+            const expectedMarbles = "(a|)";
+
+            const step = select("Test", () => customSelector);
             const context = createTestWorkflowContext();
 
             testScheduler.run(({ expectObservable }) => {
@@ -47,11 +70,10 @@ describe("Workflow Step Builders", () => {
             );
 
             const step = select("Test", () => multiEventSelector);
-            expect(() =>
-                step.activate({
-                    workflowName: "UT",
-                } as unknown as WorkflowContext)
-            ).toThrow();
+            const storelessContext = {
+                workflowName: "UT",
+            } as unknown as WorkflowContext;
+            expect(() => step.activate(storelessContext)).toThrow();
         });
 
         it("streams events one by one whe multiple events are returned", () => {

@@ -7,3 +7,7 @@ export function createBasicEvent(source: string, verb: string): RxEvent {
         type: `[${source}] ${verb}`,
     };
 }
+
+export function createTestEvent(verb: string) {
+    return createBasicEvent("UNIT TEST", verb);
+}

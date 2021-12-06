@@ -3,12 +3,12 @@ import { Subject } from "rxjs";
 import { declareEvent, RxEvent } from "@cloudextend/contrib/events";
 
 import { Workflow } from "./workflow";
-import { createTestEvent } from "./workflow-engine.service.spec";
 import { WorkflowStep } from "./workflow-step";
 import { WorkflowStepAction } from "./workflow-step-activators";
 import { exec, waitOn } from "./step-builders";
-import { waitFor } from ".";
+import { waitFor } from "./step-builders";
 import { navigation } from "@cloudextend/contrib/routing";
+import { createTestEvent } from "./test-events.utils.spec";
 
 export function getSteps(...stepTypes: string[]) {
     const awaiters: Subject<RxEvent>[] = [];

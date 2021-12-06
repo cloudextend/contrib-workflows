@@ -10,7 +10,7 @@ import { occurenceOf } from "@cloudextend/contrib/events";
 import { WorkflowContext } from "../workflow-context";
 import { waitOn } from "./wait-on.step-builder";
 import { busy, idle } from "../workflow.events";
-import { createBasicEvent } from "./utility.spec";
+import { createBasicEvent } from "../test-events.utils.spec";
 
 describe("Workflow Step Builders", () => {
     let store: Store;
@@ -18,6 +18,7 @@ describe("Workflow Step Builders", () => {
     beforeEach(() => {
         TestBed.configureTestingModule({
             providers: [provideMockStore()],
+            teardown: { destroyAfterEach: false },
         });
         store = TestBed.inject(Store);
     });

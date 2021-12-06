@@ -9,11 +9,14 @@
             "options": {
                 "tsConfig": "libs/contrib/workflows/core/tsconfig.lib.json",
                 "project": "libs/contrib/workflows/core/ng-package.json"
-            },
-            "configurations": {
-                "production": {
-                    "tsConfig": "libs/contrib/workflows/core/tsconfig.lib.prod.json"
-                }
+            }
+        },
+        "test": {
+            "executor": "@nrwl/jest:jest",
+            "outputs": ["coverage/libs/contrib/workflows/core"],
+            "options": {
+                "jestConfig": "libs/contrib/workflows/core/jest.config.js",
+                "passWithNoTests": true
             }
         },
         "lint": {
@@ -23,14 +26,6 @@
                     "libs/contrib/workflows/core/src/**/*.ts",
                     "libs/contrib/workflows/core/src/**/*.html"
                 ]
-            }
-        },
-        "test": {
-            "executor": "@nrwl/jest:jest",
-            "outputs": ["coverage/libs/contrib/workflows/core"],
-            "options": {
-                "jestConfig": "libs/contrib/workflows/core/jest.config.js",
-                "passWithNoTests": true
             }
         }
     },

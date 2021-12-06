@@ -4,10 +4,11 @@ import { Action, Store } from "@ngrx/store";
 import { MockStore, provideMockStore } from "@ngrx/store/testing";
 import { Observable, of } from "rxjs";
 
-import { RxEvent } from "@cloudextend/contrib/events";
+import { args, declareEvent, RxEvent } from "@cloudextend/contrib/events";
 import { NavigationEvent } from "@cloudextend/contrib/routing";
 
-import { getSetup } from "./test-utils.spec";
+import { getSetup } from "./test-wf.utils.spec";
+import { createTestEvent } from "./test-events.utils.spec";
 import { WorkflowEngine } from "./workflow-engine.service";
 import { WorkflowStepAction } from "./workflow-step-activators";
 import {
@@ -17,7 +18,9 @@ import {
     previousStep,
     skipSteps,
 } from "./workflow.events";
-import { idle, WorkflowUpdate } from ".";
+import { idle } from "./workflow.events";
+import { WorkflowUpdate } from "./workflow-update";
+import { Workflow } from ".";
 
 const mockOf = (mock: unknown) => mock as jest.Mock;
 
@@ -32,6 +35,7 @@ describe("WorkflowEngine", () => {
     beforeEach(() => {
         TestBed.configureTestingModule({
             providers: [provideMockStore(), provideMockActions(() => actions$)],
+            teardown: { destroyAfterEach: false },
         });
         service = TestBed.inject(WorkflowEngine);
         store = TestBed.inject(MockStore);
@@ -374,56 +378,86 @@ describe("WorkflowEngine", () => {
                 expect(dispatchFn.mock.calls[2][0].verb).toEqual("C3");
             }));
         });
+
+        //#region Setup Workflow
+
+        // This function creates a mock workflow with the given types of steps.
+        // For example, getExecutedWorkflow(["select", "exec"]) returns a mocked workflow
+        // that has select step first and then an exec step.
+        // Look at the getSetup method implementaton for the composition of these mock setps.
+        function getExecutedWorkflow(
+            stepTypes: string[],
+            onCompletion: WorkflowStepAction
+        ): ReturnType<typeof getSetup> & {
+            WorkflowChanges$: Observable<WorkflowUpdate>;
+        };
+        function getExecutedWorkflow(...stepTypes: string[]): ReturnType<
+            typeof getSetup
+        > & {
+            WorkflowChanges$: Observable<WorkflowUpdate>;
+        };
+        function getExecutedWorkflow(
+            stepTypesOrFirstStep: string | string[],
+            ...args: unknown[]
+        ): ReturnType<typeof getSetup> & {
+            WorkflowChanges$: Observable<WorkflowUpdate>;
+        } {
+            const stepTypes = Array.isArray(stepTypesOrFirstStep)
+                ? stepTypesOrFirstStep
+                : [stepTypesOrFirstStep, ...(args as string[])];
+            const onCompletion = Array.isArray(stepTypesOrFirstStep)
+                ? (args[0] as WorkflowStepAction)
+                : undefined;
+
+            const setup = getSetup(stepTypes, onCompletion);
+            const WorkflowChanges$ = service.executeWorkflow(setup.workflow);
+            WorkflowChanges$.subscribe();
+            return { ...setup, WorkflowChanges$ };
+        }
+
+        function getDispatchedEvent(): RxEvent | undefined {
+            const calls = dispatchFn.mock.calls;
+            return calls[calls.length - 1][0];
+        }
+
+        //#endregion
     });
 
-    //#region Setup Workflow
+    describe("Given a Workflow trigger", () => {
+        const trigger = declareEvent(
+            "UT_Trigger",
+            args<{ triggerArgs: string }>()
+        );
 
-    // This function creates a mock workflow with the given types of steps.
-    // For example, getExecutedWorkflow(["select", "exec"]) returns a mocked workflow
-    // that has select step first and then an exec step.
-    // Look at the getSetup method implementaton for the composition of these mock setps.
-    function getExecutedWorkflow(
-        stepTypes: string[],
-        onCompletion: WorkflowStepAction
-    ): ReturnType<typeof getSetup> & {
-        WorkflowChanges$: Observable<WorkflowUpdate>;
-    };
-    function getExecutedWorkflow(...stepTypes: string[]): ReturnType<
-        typeof getSetup
-    > & {
-        WorkflowChanges$: Observable<WorkflowUpdate>;
-    };
-    function getExecutedWorkflow(
-        stepTypesOrFirstStep: string | string[],
-        ...args: unknown[]
-    ): ReturnType<typeof getSetup> & {
-        WorkflowChanges$: Observable<WorkflowUpdate>;
-    } {
-        const stepTypes = Array.isArray(stepTypesOrFirstStep)
-            ? stepTypesOrFirstStep
-            : [stepTypesOrFirstStep, ...(args as string[])];
-        const onCompletion = Array.isArray(stepTypesOrFirstStep)
-            ? (args[0] as WorkflowStepAction)
-            : undefined;
+        const triggered = trigger("UT", { triggerArgs: "ut-value" });
 
-        const setup = getSetup(stepTypes, onCompletion);
-        const WorkflowChanges$ = service.executeWorkflow(setup.workflow);
-        WorkflowChanges$.subscribe();
-        return { ...setup, WorkflowChanges$ };
-    }
+        let wfBuilder: jest.Mock;
 
-    function getDispatchedEvent(): RxEvent | undefined {
-        const calls = dispatchFn.mock.calls;
-        return calls[calls.length - 1][0];
-    }
+        beforeEach(() => {
+            const { workflow } = getSetup(["exec"]);
+            wfBuilder = jest.fn(() => workflow);
 
-    //#endregion
+            service.registerWorkflow(trigger, wfBuilder);
+        });
+
+        it("executes the workflow on trigger", done => {
+            const execWorkflowFn = jest.spyOn(service, "executeWorkflow");
+            actions$ = of(triggered);
+
+            service.onWorkflowTrigger$.subscribe(() => {
+                expect(wfBuilder).toHaveBeenCalledTimes(1);
+                expect(execWorkflowFn).toHaveBeenCalledTimes(1);
+                done();
+            });
+        });
+
+        it("passes the event to the workflow builder", done => {
+            actions$ = of(triggered);
+
+            service.onWorkflowTrigger$.subscribe(() => {
+                expect(wfBuilder).toHaveBeenCalledWith(triggered);
+                done();
+            });
+        });
+    });
 });
-
-export function createTestEvent(verb: string) {
-    return {
-        verb,
-        source: "UNIT TEST",
-        type: `[UNIT TEST] ${verb}`,
-    } as RxEvent;
-}

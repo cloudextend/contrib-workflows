@@ -5,12 +5,10 @@ module.exports = {
     globals: {
         "ts-jest": {
             stringifyContentPathRegex: "\\.(html|svg)$",
-
             tsconfig: "<rootDir>/tsconfig.spec.json",
         },
     },
     coverageDirectory: "../../../../coverage/libs/contrib/workflows/core",
-
     transform: {
         "^.+.(ts|mjs|js|html)$": "jest-preset-angular",
     },
