@@ -8,7 +8,7 @@ import { TestScheduler } from "rxjs/testing";
 import { occurenceOf } from "@cloudextend/contrib/events";
 
 import { WorkflowContext } from "../workflow-context";
-import { waitOn } from "./wait-on.step-builder";
+import { load } from "./load.step-builder";
 import { busy, idle } from "../workflow.events";
 import { createBasicEvent } from "../test-events.utils.spec";
 
@@ -23,7 +23,7 @@ describe("Workflow Step Builders", () => {
         store = TestBed.inject(Store);
     });
 
-    describe("waitOn", () => {
+    describe("load", () => {
         it("enters and exits busy state while executing the step", () => {
             const busyEvent = busy("UT", { message: "Just busy!" });
             const workEvent = createBasicEvent("UT", "Actual Work");
@@ -33,7 +33,7 @@ describe("Workflow Step Builders", () => {
             const expectedEvents = { a: busyEvent, b: workEvent, c: idleEvent };
             const expectedMarbles = "(abc|)";
 
-            const step = waitOn("Lengthy Step", "Just busy!", () => workEvent$);
+            const step = load("Lengthy Step", "Just busy!", () => workEvent$);
             const context = createTestWorkflowContext();
 
             testScheduler.run(({ expectObservable }) => {
@@ -46,7 +46,7 @@ describe("Workflow Step Builders", () => {
 
         it("can create a waiting message using context", done => {
             const context = createTestWorkflowContext();
-            const step = waitOn(
+            const step = load(
                 "Test1",
                 c => `My ${c.workflowName}`,
                 () => of(createBasicEvent("UT", "A"))

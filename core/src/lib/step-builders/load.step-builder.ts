@@ -5,7 +5,7 @@ import { WorkflowContext } from "../workflow-context";
 import { WorkflowStep } from "../workflow-step";
 import { busy, idle } from "../workflow.events";
 
-export function waitOn<
+export function load<
     T extends WorkflowContext = WorkflowContext,
     D1 = undefined,
     D2 = undefined,
@@ -32,7 +32,7 @@ export function waitOn<
         d5?: Type<D5>
     ]
 ): WorkflowStep<T>;
-export function waitOn<
+export function load<
     T extends WorkflowContext = WorkflowContext,
     D1 = undefined,
     D2 = undefined,
@@ -66,7 +66,7 @@ export function waitOn<
         d5?: Type<D5>
     ]
 ): WorkflowStep<T>;
-export function waitOn<
+export function load<
     T extends WorkflowContext = WorkflowContext,
     D1 = undefined,
     D2 = undefined,

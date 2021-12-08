@@ -5,7 +5,7 @@ import { declareEvent, RxEvent } from "@cloudextend/contrib/events";
 import { Workflow } from "./workflow";
 import { WorkflowStep } from "./workflow-step";
 import { WorkflowStepAction } from "./workflow-step-activators";
-import { exec, waitOn } from "./step-builders";
+import { exec, load } from "./step-builders";
 import { waitFor } from "./step-builders";
 import { navigation } from "@cloudextend/contrib/routing";
 import { createTestEvent } from "./test-events.utils.spec";
@@ -30,11 +30,7 @@ export function getSteps(...stepTypes: string[]) {
         } else if (t === "waitOn") {
             awaiters[i] = new Subject<RxEvent>();
             activations[i] = jest.fn(() => awaiters[i]);
-            steps[i] = waitOn(
-                "STEP_" + i,
-                `Waiting on ${i}...`,
-                activations[i]
-            );
+            steps[i] = load("STEP_" + i, `Waiting on ${i}...`, activations[i]);
         } else if (t === "waitFor") {
             activations[i] = jest.fn(() => createTestEvent(`E${i}`));
             const blocker = declareEvent(`blocker${i}`);
