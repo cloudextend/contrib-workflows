@@ -14,9 +14,11 @@ export function waitFor<T extends WorkflowContext = WorkflowContext>(
         ? eventOrEvents.map(e => e.verb)
         : [eventOrEvents.verb];
     const activate = (context: T) => {
-        if (waitingMessage) {
+        if (!context.isBackgroundWorkflow) {
             return from([
-                busy(context.workflowName, { message: waitingMessage }),
+                busy(context.workflowName, {
+                    message: waitingMessage ?? "Please wait...",
+                }),
                 blockedUntil(context.workflowName, { verbs }),
             ]);
         }

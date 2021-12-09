@@ -12,7 +12,7 @@ import { load } from "./load.step-builder";
 import { busy, idle } from "../workflow.events";
 import { createBasicEvent } from "../test-events.utils.spec";
 
-describe("Workflow Step Builders", () => {
+describe("'load' Step Builders", () => {
     let store: Store;
 
     beforeEach(() => {
@@ -23,7 +23,27 @@ describe("Workflow Step Builders", () => {
         store = TestBed.inject(Store);
     });
 
-    describe("load", () => {
+    describe("in a background workflow", () => {
+        it("does not enter busy state", () => {
+            const workEvent = createBasicEvent("UT", "Actual Work");
+            const workEvent$ = of(workEvent);
+
+            const expectedEvents = { a: workEvent };
+            const expectedMarbles = "(a|)";
+
+            const step = load("Lengthy Step", "Just busy!", () => workEvent$);
+            const context = createTestWorkflowContext(true);
+
+            testScheduler.run(({ expectObservable }) => {
+                expectObservable(step.activate(context)).toBe(
+                    expectedMarbles,
+                    expectedEvents
+                );
+            });
+        });
+    });
+
+    describe("in a foreground workflow", () => {
         it("enters and exits busy state while executing the step", () => {
             const busyEvent = busy("UT", { message: "Just busy!" });
             const workEvent = createBasicEvent("UT", "Actual Work");
@@ -67,8 +87,11 @@ describe("Workflow Step Builders", () => {
         expect(actual).toEqual(expected)
     );
 
-    function createTestWorkflowContext(): WorkflowContext {
+    function createTestWorkflowContext(
+        isBackgroundWorkflow?: boolean
+    ): WorkflowContext {
         return {
+            isBackgroundWorkflow,
             store,
             workflowName: "UT",
             inject: TestBed.inject,

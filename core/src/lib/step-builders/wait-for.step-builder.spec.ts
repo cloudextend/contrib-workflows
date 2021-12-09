@@ -18,37 +18,54 @@ describe("waitFor Step Builders", () => {
             providers: [provideMockStore()],
             teardown: { destroyAfterEach: false },
         });
-        const store = TestBed.inject(MockStore);
-
-        context = { workflowName: "UTWF", store };
     });
 
-    it("creates a step that returns a blockedUntil event", () => {
-        const step = waitFor(testEvent);
-        testScheduler.run(({ expectObservable }) => {
-            const expectedEvents = { a: blockedUntil("UTWF", testEvent.verb) };
-            const expectedMarbles = "(a|)";
+    describe("in a background workflow", () => {
+        beforeEach(() => {
+            const store = TestBed.inject(MockStore);
+            context = {
+                workflowName: "UTWF",
+                store,
+                isBackgroundWorkflow: true,
+            };
+        });
 
-            expectObservable(step.activate(context)).toBe(
-                expectedMarbles,
-                expectedEvents
-            );
+        it("creates a step that returns a blockedUntil event", () => {
+            const step = waitFor(testEvent);
+            testScheduler.run(({ expectObservable }) => {
+                const expectedEvents = {
+                    a: blockedUntil("UTWF", { verbs: [testEvent.verb] }),
+                };
+                const expectedMarbles = "(a|)";
+
+                expectObservable(step.activate(context)).toBe(
+                    expectedMarbles,
+                    expectedEvents
+                );
+            });
         });
     });
 
-    it("when a waiting message is given, createsd step raises busy and blockUntil events", () => {
-        const step = waitFor(testEvent, "Doing something...");
-        testScheduler.run(({ expectObservable }) => {
-            const expectedEvents = {
-                a: busy("UTWF", { message: "Doing something..." }),
-                b: blockedUntil("UTWF", testEvent.verb),
-            };
-            const expectedMarbles = "(ab|)";
+    describe("in a foreground workflow", () => {
+        beforeEach(() => {
+            const store = TestBed.inject(MockStore);
+            context = { workflowName: "UTWF", store };
+        });
 
-            expectObservable(step.activate(context)).toBe(
-                expectedMarbles,
-                expectedEvents
-            );
+        it("createsd step raises busy and blockUntil events", () => {
+            const step = waitFor(testEvent, "Doing something...");
+            testScheduler.run(({ expectObservable }) => {
+                const expectedEvents = {
+                    a: busy("UTWF", { message: "Doing something..." }),
+                    b: blockedUntil("UTWF", { verbs: [testEvent.verb] }),
+                };
+                const expectedMarbles = "(ab|)";
+
+                expectObservable(step.activate(context)).toBe(
+                    expectedMarbles,
+                    expectedEvents
+                );
+            });
         });
     });
 

@@ -103,6 +103,10 @@ export function load<
         d4?: D4,
         d5?: D5
     ) => {
+        if (context.isBackgroundWorkflow) {
+            return lengthyWork(context, d1, d2, d3, d4, d5);
+        }
+
         const waitingMessage =
             typeof messageOrBuilder === "string"
                 ? messageOrBuilder

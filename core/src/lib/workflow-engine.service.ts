@@ -28,7 +28,7 @@ interface ExecutingWorkflow<T extends WorkflowContext = WorkflowContext> {
     context: T;
     nextStepIndex: number;
     stepIndexByLabel: Map<string, number>;
-    ignoreGoTo?: boolean;
+    doNotIndex?: boolean;
     blockingEvents?: Set<string>;
     workflow: Workflow<T>;
     workflowEvents$: Subject<WorkflowUpdate>;
@@ -161,12 +161,14 @@ export class WorkflowEngine {
         WorkflowBuilder
     >();
 
-    public executeWorkflow(
-        workflow: Workflow,
-        options?: { ignoreGotoLabel?: boolean }
-    ): Observable<WorkflowUpdate> {
-        const context = { workflowName: workflow.name, store: this.store };
-        const stepIndexByLabel = options?.ignoreGotoLabel
+    public executeWorkflow(workflow: Workflow): Observable<WorkflowUpdate> {
+        const context = {
+            isBackgroundWorkflow: workflow.isBackgroundWorkflow,
+            workflowName: workflow.name,
+            store: this.store,
+        } as WorkflowContext;
+
+        const stepIndexByLabel = workflow.doNotIndex
             ? new Map<string, number>()
             : WorkflowEngine.createStepIndexByLabelMap(workflow.steps);
 
@@ -177,7 +179,7 @@ export class WorkflowEngine {
             stepIndexByLabel,
             workflowEvents$,
             nextStepIndex: 0,
-            ignoreGoTo: options?.ignoreGotoLabel,
+            doNotIndex: workflow.doNotIndex,
         };
 
         workflowEvents$.next({
@@ -324,11 +326,11 @@ export class WorkflowEngine {
             );
         }
 
-        if (this.current.ignoreGoTo) {
+        if (this.current.doNotIndex) {
             console.warn(
                 `Unable to navigate to '${label}' step.` +
-                    "'ignoreGotoLabel' has been specified when " +
-                    "calling 'executeWorkflow'."
+                    "The workflow had disabled indexing and therefore " +
+                    "'goto' events are unsupported for this workflow."
             );
             return;
         }
