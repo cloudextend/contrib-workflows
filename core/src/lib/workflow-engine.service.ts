@@ -29,7 +29,7 @@ interface ExecutingWorkflow<T extends WorkflowContext = WorkflowContext> {
     nextStepIndex: number;
     stepIndexByLabel: Map<string, number>;
     ignoreGoTo?: boolean;
-    blockUntilEvent?: string;
+    blockingEvents?: Set<string>;
     workflow: Workflow<T>;
     workflowEvents$: Subject<WorkflowUpdate>;
 }
@@ -102,12 +102,22 @@ export class WorkflowEngine {
                 filter(
                     event =>
                         !!this.current &&
-                        !!this.current.blockUntilEvent &&
-                        (event as RxEvent).verb === this.current.blockUntilEvent
+                        !!this.current.blockingEvents &&
+                        !!(event as RxEvent).verb &&
+                        this.current.blockingEvents.has((event as RxEvent).verb)
                 ),
-                map(() => {
+                map(event => {
+                    const verb = (event as RxEvent).verb;
+
                     const current = this.current;
+                    const blockingEvents = current?.blockingEvents;
                     if (!current) return; // only to appease strict type checking
+
+                    if (!!blockingEvents) {
+                        blockingEvents.delete(verb);
+                        // If there are more events blocking the flow, exit.
+                        if (blockingEvents.size > 0) return;
+                    }
 
                     const currentWf = current.workflow;
                     current.workflowEvents$.next({
@@ -227,7 +237,7 @@ export class WorkflowEngine {
         // a WF event extenrally, or it's not waiting for a specific event).
         const staySubscribed = () =>
             currentStepIndex === current.nextStepIndex &&
-            !current.blockUntilEvent;
+            !current.blockingEvents?.size;
 
         let autoforward = true;
         currentStep
@@ -252,9 +262,9 @@ export class WorkflowEngine {
                         autoforward = false;
                     } else if (occurenceOf(blockedUntil, event)) {
                         autoforward = false;
-                        current.blockUntilEvent = (
-                            event as ReturnType<typeof blockedUntil>
-                        ).value;
+                        current.blockingEvents = new Set<string>(
+                            (event as ReturnType<typeof blockedUntil>).verbs
+                        );
                         // don't dispatch endStep event
                         return;
                     } else {

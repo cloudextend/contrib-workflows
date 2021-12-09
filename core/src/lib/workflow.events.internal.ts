@@ -1,6 +1,6 @@
 import { args, declareEvent } from "@cloudextend/contrib/events";
 
-export const blockedUntil = declareEvent<string>(
+export const blockedUntil = declareEvent(
     "#workflow:Blocked",
-    args("verb")
+    args<{ verbs: string[] }>()
 );

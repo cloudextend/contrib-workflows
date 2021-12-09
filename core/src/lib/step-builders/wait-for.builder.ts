@@ -6,18 +6,22 @@ import { blockedUntil } from "../workflow.events.internal";
 import { WorkflowStep } from "../workflow-step";
 
 export function waitFor<T extends WorkflowContext = WorkflowContext>(
-    event: EventCreator,
-    waitingMessage?: string
+    eventOrEvents: EventCreator | EventCreator[],
+    waitingMessage?: string,
+    label?: string
 ): WorkflowStep<T> {
+    const verbs = Array.isArray(eventOrEvents)
+        ? eventOrEvents.map(e => e.verb)
+        : [eventOrEvents.verb];
     const activate = (context: T) => {
         if (waitingMessage) {
             return from([
                 busy(context.workflowName, { message: waitingMessage }),
-                blockedUntil(context.workflowName, event.verb),
+                blockedUntil(context.workflowName, { verbs }),
             ]);
         }
-        return of(blockedUntil(context.workflowName, event.verb));
+        return of(blockedUntil(context.workflowName, { verbs }));
     };
 
-    return { activate, label: "waitFor:" + event.verb };
+    return { activate, label: label ?? "waitFor:" + verbs.join(", ") };
 }
