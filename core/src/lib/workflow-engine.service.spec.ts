@@ -276,22 +276,18 @@ describe("WorkflowEngine", () => {
                 }
             });
 
-            it("will ignore goto's if told to, during executeWorkflow", () => {
-                const { activations, workflow } = getSetup([
-                    "exec.view",
-                    "exec.view",
-                    "exec.view",
-                    "exec.view",
-                ]);
+            it("will ignore goto's if workflow.isBackgroundWorkflow is true", () => {
+                const { activations, workflow } = getSetup(
+                    ["exec.view", "exec.view", "exec.view", "exec.view"],
+                    { isBackgroundWorkflow: true }
+                );
 
                 // Prevent the warnning from being printed.
                 const warn = console.warn;
                 // eslint-disable-next-line @typescript-eslint/no-empty-function
                 console.warn = () => {};
 
-                service
-                    .executeWorkflow(workflow, { ignoreGotoLabel: true })
-                    .subscribe();
+                service.executeWorkflow(workflow).subscribe();
 
                 expect(activations[0]).toHaveBeenCalledTimes(1);
                 activations[0].mockClear();
@@ -409,7 +405,7 @@ describe("WorkflowEngine", () => {
                 ? (args[0] as WorkflowStepAction)
                 : undefined;
 
-            const setup = getSetup(stepTypes, onCompletion);
+            const setup = getSetup(stepTypes, { onCompletion });
             const WorkflowChanges$ = service.executeWorkflow(setup.workflow);
             WorkflowChanges$.subscribe();
             return { ...setup, WorkflowChanges$ };

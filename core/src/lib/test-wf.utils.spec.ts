@@ -48,17 +48,19 @@ export function getSteps(...stepTypes: string[]) {
 class TestableWorkflow implements Workflow {
     constructor(
         public readonly steps: WorkflowStep[],
-        public readonly onCompletion?: WorkflowStepAction
+        public readonly onCompletion?: WorkflowStepAction,
+        public readonly isBackgroundWorkflow?: boolean
     ) {}
     readonly name = "UT";
 }
 
-export function getSetup(
-    stepTypes: string[],
-    onCompletion?: WorkflowStepAction
-) {
+export function getSetup(stepTypes: string[], wfConfig?: Partial<Workflow>) {
     const { activations, awaiters, steps } = getSteps(...stepTypes);
-    const workflow = new TestableWorkflow(steps, onCompletion);
+    const workflow = new TestableWorkflow(
+        steps,
+        wfConfig?.onCompletion,
+        wfConfig?.isBackgroundWorkflow
+    );
 
     return { activations, awaiters, workflow };
 }
