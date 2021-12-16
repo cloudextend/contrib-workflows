@@ -1,8 +1,8 @@
 import { TestScheduler } from "rxjs/testing";
 
-import { busy, idle } from "@cloudextend/common/core";
-import { RxEvent } from "@cloudextend/common/events";
-import { WorkflowContext, WorkflowStep } from "@cloudextend/common/workflows";
+import { busy, idle } from "@cloudextend/contrib/workflows";
+import { RxEvent } from "@cloudextend/contrib/events";
+import { WorkflowContext, WorkflowStep } from "@cloudextend/contrib/workflows";
 
 export class WorkflowStepExpectations<
     T extends WorkflowContext = WorkflowContext
@@ -29,7 +29,7 @@ export class WorkflowStepExpectations<
                     assertions(emittedEvents);
                     done();
                 } catch (e) {
-                    done.fail(e);
+                    done.fail(e as unknown as string | { message: string });
                 }
             },
         });
@@ -69,7 +69,7 @@ export class WorkflowStepExpectations<
                     assertions(emittedEvents[0]);
                     done();
                 } catch (e) {
-                    done.fail(e);
+                    done.fail(e as unknown as string | { message: string });
                 }
             },
         });

@@ -1,31 +1,37 @@
-import { Injectable } from "@angular/core";
+import { Inject, Injectable, InjectionToken, Optional } from "@angular/core";
 import { Actions, createEffect } from "@ngrx/effects";
 import { Store } from "@ngrx/store";
 import { Observable, Subject } from "rxjs";
-import { map, takeWhile } from "rxjs/operators";
+import { filter, map, takeWhile } from "rxjs/operators";
 
-import { fault, Logger, LogService } from "@cloudextend/common/core";
-import { occurenceOf, onEvent } from "@cloudextend/common/events";
-import { navigate } from "@cloudextend/common/routes";
-import { views } from "@cloudextend/common/state";
+import {
+    EventCreator,
+    occurenceOf,
+    onEvent,
+    RxEvent,
+} from "@cloudextend/contrib/events";
+import { navigation } from "@cloudextend/contrib/routing";
 
 import { Workflow } from "./workflow";
 import { WorkflowContext } from "./workflow-context";
 import { WorkflowStep } from "./workflow-step";
 import { skipSteps, nextStep, previousStep, goto } from "./workflow.events";
+import { WorkflowUpdate, WorkflowUpdateType } from "./workflow-update";
+import { blockedUntil } from "./workflow.events.internal";
+import { idle } from ".";
 
-export interface WorkflowStepEvent {
-    stepLabel: string;
-    stepIndex: number;
-}
+export const CE_WF_FALLBACK_PATH = new InjectionToken("CloudExtend_Home_Path");
+
+export type WorkflowBuilder = (event: RxEvent) => Workflow;
 
 interface ExecutingWorkflow<T extends WorkflowContext = WorkflowContext> {
     context: T;
     nextStepIndex: number;
     stepIndexByLabel: Map<string, number>;
-    ignoreGoTo?: boolean;
+    doNotIndex?: boolean;
+    blockingEvents?: Set<string>;
     workflow: Workflow<T>;
-    workflowEvents$: Subject<WorkflowStepEvent>;
+    workflowEvents$: Subject<WorkflowUpdate>;
 }
 
 @Injectable({ providedIn: "root" })
@@ -33,10 +39,14 @@ export class WorkflowEngine {
     constructor(
         private readonly actions$: Actions,
         private readonly store: Store,
-        private readonly logSvc: LogService
+        @Optional()
+        @Inject(CE_WF_FALLBACK_PATH)
+        fallbackPath: string
     ) {
-        this.logger = logSvc.createLogger("WorkflowEngine");
+        this.homePath = fallbackPath ?? "/";
     }
+
+    private readonly homePath: string;
 
     onNextStep$ = createEffect(
         () =>
@@ -86,35 +96,112 @@ export class WorkflowEngine {
         { dispatch: false }
     );
 
+    onBlockedUntil$ = createEffect(
+        () =>
+            this.actions$.pipe(
+                filter(
+                    event =>
+                        !!this.current &&
+                        !!this.current.blockingEvents &&
+                        !!(event as RxEvent).verb &&
+                        this.current.blockingEvents.has((event as RxEvent).verb)
+                ),
+                map(event => {
+                    const verb = (event as RxEvent).verb;
+
+                    const current = this.current;
+                    const blockingEvents = current?.blockingEvents;
+                    if (!current) return; // only to appease strict type checking
+
+                    if (!!blockingEvents) {
+                        blockingEvents.delete(verb);
+                        // If there are more events blocking the flow, exit.
+                        if (blockingEvents.size > 0) return;
+                    }
+
+                    const currentWf = current.workflow;
+                    current.workflowEvents$.next({
+                        type: WorkflowUpdateType.endStep,
+                        stepIndex: current.nextStepIndex,
+                        stepLabel:
+                            currentWf.steps[current.nextStepIndex]?.label,
+                        workflowName: currentWf.name,
+                    });
+                    this.store.dispatch(idle(currentWf.name));
+
+                    this.gotoNextStep();
+                    this.activateNextStep();
+                })
+            ),
+        { dispatch: false }
+    );
+
+    onWorkflowTrigger$ = createEffect(
+        () =>
+            this.actions$.pipe(
+                filter(
+                    event =>
+                        !!(event as RxEvent).verb &&
+                        this.workflowBuilderByEvent.has((event as RxEvent).verb)
+                ),
+                map(event => {
+                    const builder = this.workflowBuilderByEvent.get(
+                        (event as RxEvent).verb
+                    );
+                    return this.executeWorkflow(builder!(event as RxEvent));
+                })
+            ),
+        { dispatch: false }
+    );
+
     private current: ExecutingWorkflow | undefined;
 
-    private readonly logger: Logger;
+    private readonly workflowBuilderByEvent = new Map<
+        string,
+        WorkflowBuilder
+    >();
 
-    public executeWorkflow(
-        workflow: Workflow,
-        options?: { ignoreGotoLabel?: boolean }
-    ): Observable<WorkflowStepEvent> {
+    public executeWorkflow(workflow: Workflow): Observable<WorkflowUpdate> {
         const context = {
+            isBackgroundWorkflow: workflow.isBackgroundWorkflow,
             workflowName: workflow.name,
-            logger: this.logSvc.createLogger(workflow.name),
-        };
-        const stepIndexByLabel = options?.ignoreGotoLabel
+            store: this.store,
+        } as WorkflowContext;
+
+        const stepIndexByLabel = workflow.doNotIndex
             ? new Map<string, number>()
             : WorkflowEngine.createStepIndexByLabelMap(workflow.steps);
 
-        const workflowEvents$ = new Subject<WorkflowStepEvent>();
+        const workflowEvents$ = new Subject<WorkflowUpdate>();
         this.current = {
             workflow,
             context,
             stepIndexByLabel,
             workflowEvents$,
             nextStepIndex: 0,
-            ignoreGoTo: options?.ignoreGotoLabel,
+            doNotIndex: workflow.doNotIndex,
         };
 
-        this.logger.debug("Starting workflow %s", this.current.workflow.name);
+        workflowEvents$.next({
+            type: WorkflowUpdateType.beginWorkflow,
+            workflowName: workflow.name,
+        });
         this.activateNextStep();
         return workflowEvents$;
+    }
+
+    public registerWorkflow(
+        event: EventCreator,
+        builder: (event: RxEvent) => Workflow
+    ) {
+        if (!event?.verb) {
+            throw new Error("Triggering event cannot be null or undefined.");
+        }
+        if (!builder) {
+            throw new Error("The builder cannot be null or undefined.");
+        }
+
+        this.workflowBuilderByEvent.set(event.verb, builder);
     }
 
     private activateNextStep(): void {
@@ -126,8 +213,11 @@ export class WorkflowEngine {
         } else if (current.nextStepIndex >= current.workflow.steps.length) {
             current.nextStepIndex = 0;
             this.executeOnCompleteAction();
+            current.workflowEvents$.next({
+                type: WorkflowUpdateType.endWorkflow,
+                workflowName: current.workflow.name,
+            });
             current.workflowEvents$.complete();
-            this.logger.debug("%s was completed.", current.workflow.name);
 
             delete this.current;
             return;
@@ -140,16 +230,21 @@ export class WorkflowEngine {
         const currentStepIndex = current.nextStepIndex;
         const currentStep = current.workflow.steps[currentStepIndex];
 
-        this.logger.debug(
-            "Executing step %s: %s...",
-            currentStepIndex,
-            currentStep.label
-        );
+        current.workflowEvents$.next({
+            type: WorkflowUpdateType.beginStep,
+            workflowName: current.workflow.name,
+        });
+
+        // Stay subscribed to a step only if it has not been navigated off of externally (by raising
+        // a WF event extenrally, or it's not waiting for a specific event).
+        const staySubscribed = () =>
+            currentStepIndex === current.nextStepIndex &&
+            !current.blockingEvents?.size;
 
         let autoforward = true;
         currentStep
             .activate(current.context)
-            .pipe(takeWhile(() => currentStepIndex === current.nextStepIndex))
+            .pipe(takeWhile(staySubscribed))
             .subscribe({
                 next: event => {
                     if (occurenceOf(nextStep, event)) {
@@ -164,16 +259,25 @@ export class WorkflowEngine {
                         this.gotoLabeledStep(
                             (event as ReturnType<typeof goto>).value
                         );
-                    } else if (occurenceOf(navigate, event)) {
+                    } else if (occurenceOf(navigation, event)) {
                         this.store.dispatch(event);
                         autoforward = false;
+                    } else if (occurenceOf(blockedUntil, event)) {
+                        autoforward = false;
+                        current.blockingEvents = new Set<string>(
+                            (event as ReturnType<typeof blockedUntil>).verbs
+                        );
+                        // don't dispatch endStep event
+                        return;
                     } else {
                         this.store.dispatch(event);
                     }
 
                     current.workflowEvents$.next({
+                        type: WorkflowUpdateType.endStep,
                         stepIndex: currentStepIndex,
                         stepLabel: currentStep.label,
+                        workflowName: current.workflow.name,
                     });
                 },
                 error: current.workflowEvents$.error,
@@ -188,7 +292,7 @@ export class WorkflowEngine {
             });
     }
 
-    private executeOnCompleteAction() {
+    private executeOnCompleteAction(): void {
         if (this.current?.workflow.onCompletion) {
             const context = this.current.context;
             const completionEvents =
@@ -200,30 +304,33 @@ export class WorkflowEngine {
                 this.store.dispatch(completionEvents);
             }
         } else {
-            this.store.dispatch(views.home("#workflowEngine"));
+            this.store.dispatch(
+                navigation("#workflows/engine", {
+                    pathSegments: [this.homePath],
+                })
+            );
         }
     }
 
     private skipSteps(skips: number) {
         if (!this.current) return -1;
 
-        this.logger.debug("Skip %s steps...", skips);
         this.current.nextStepIndex += 1 + skips;
         return this.current.nextStepIndex;
     }
 
     private gotoLabeledStep(label: string) {
         if (!this.current) {
-            throw fault(
+            throw new Error(
                 `There is no active workflow. Cannot go to step ${label}`
             );
         }
 
-        if (this.current.ignoreGoTo) {
-            this.logger.warn(
+        if (this.current.doNotIndex) {
+            console.warn(
                 `Unable to navigate to '${label}' step.` +
-                    "'ignoreGotoLabel' may have been specified when " +
-                    "calling 'executeWorkflow'."
+                    "The workflow had disabled indexing and therefore " +
+                    "'goto' events are unsupported for this workflow."
             );
             return;
         }
@@ -231,7 +338,7 @@ export class WorkflowEngine {
         const stepIndex = this.current.stepIndexByLabel.get(label);
 
         if (typeof stepIndex === "undefined") {
-            throw fault(`Attempted to go to an unknown step '${label}'.`);
+            throw new Error(`Attempted to go to an unknown step '${label}'.`);
         }
 
         return (this.current.nextStepIndex = stepIndex);
@@ -240,7 +347,6 @@ export class WorkflowEngine {
     private gotoPreviousStep() {
         if (!this.current) return -1;
 
-        this.logger.debug("Returning to previous step...");
         this.current.nextStepIndex--;
         return this.current.nextStepIndex;
     }
@@ -248,7 +354,6 @@ export class WorkflowEngine {
     private gotoNextStep() {
         if (!this.current) return -1;
 
-        this.logger.debug("Begining next step...");
         this.current.nextStepIndex++;
         return this.current.nextStepIndex;
     }

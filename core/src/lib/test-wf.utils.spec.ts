@@ -1,13 +1,14 @@
 import { Subject } from "rxjs";
 
-import { RxEvent } from "@cloudextend/common/events";
-import { navigate } from "@cloudextend/common/routes";
+import { declareEvent, RxEvent } from "@cloudextend/contrib/events";
 
 import { Workflow } from "./workflow";
-import { createTestEvent } from "./workflow-engine.service.spec";
 import { WorkflowStep } from "./workflow-step";
 import { WorkflowStepAction } from "./workflow-step-activators";
-import { exec, waitOn } from "./workflow-step-builders";
+import { exec, load } from "./step-builders";
+import { waitFor } from "./step-builders";
+import { navigation } from "@cloudextend/contrib/routing";
+import { createTestEvent } from "./test-events.utils.spec";
 
 export function getSteps(...stepTypes: string[]) {
     const awaiters: Subject<RxEvent>[] = [];
@@ -21,7 +22,7 @@ export function getSteps(...stepTypes: string[]) {
             steps[i] = exec("STEP_" + i, activations[i]);
         } else if (t === "exec.view") {
             activations[i] = jest.fn(() =>
-                navigate("UNIT TEST", {
+                navigation("UNIT TEST", {
                     pathSegments: ["test", "" + i],
                 })
             );
@@ -29,11 +30,15 @@ export function getSteps(...stepTypes: string[]) {
         } else if (t === "waitOn") {
             awaiters[i] = new Subject<RxEvent>();
             activations[i] = jest.fn(() => awaiters[i]);
-            steps[i] = waitOn(
-                "STEP_" + i,
-                `Waiting on ${i}...`,
-                activations[i]
-            );
+            steps[i] = load("STEP_" + i, `Waiting on ${i}...`, activations[i]);
+        } else if (t === "waitFor") {
+            activations[i] = jest.fn(() => createTestEvent(`E${i}`));
+            const blocker = declareEvent(`blocker${i}`);
+            steps[i] = waitFor(blocker);
+        } else if (t === "waitFor.busy") {
+            activations[i] = jest.fn(() => createTestEvent(`E${i}`));
+            const blocker = declareEvent(`blocker${i}`);
+            steps[i] = waitFor(blocker, `Waiting for 'blocker${i}'`);
         }
     });
 

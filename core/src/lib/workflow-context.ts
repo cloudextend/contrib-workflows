@@ -1,6 +1,7 @@
-import { Logger } from "@cloudextend/common/core";
+import { Store } from "@ngrx/store";
 
 export interface WorkflowContext extends Record<string, unknown> {
     readonly workflowName: string;
-    readonly logger?: Logger;
+    readonly store: Store;
+    readonly isBackgroundWorkflow?: boolean;
 }

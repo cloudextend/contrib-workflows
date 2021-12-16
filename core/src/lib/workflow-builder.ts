@@ -1,4 +1,4 @@
-import { bindSource } from "@cloudextend/common/events";
+import { bindSource } from "@cloudextend/contrib/events";
 
 import * as wfevents from "./workflow.events";
 
