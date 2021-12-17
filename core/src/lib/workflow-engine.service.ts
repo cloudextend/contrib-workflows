@@ -18,7 +18,7 @@ import { WorkflowStep } from "./workflow-step";
 import { skipSteps, nextStep, previousStep, goto } from "./workflow.events";
 import { WorkflowUpdate, WorkflowUpdateType } from "./workflow-update";
 import { blockedUntil } from "./workflow.events.internal";
-import { idle } from ".";
+import { contextUpdated, idle } from ".";
 
 export const CE_WF_FALLBACK_PATH = new InjectionToken("CloudExtend_Home_Path");
 
@@ -262,6 +262,11 @@ export class WorkflowEngine {
                     } else if (occurenceOf(navigation, event)) {
                         this.store.dispatch(event);
                         autoforward = false;
+                    } else if (occurenceOf(contextUpdated, event)) {
+                        Object.assign(
+                            current.context,
+                            (event as ReturnType<typeof contextUpdated>).update
+                        );
                     } else if (occurenceOf(blockedUntil, event)) {
                         autoforward = false;
                         current.blockingEvents = new Set<string>(

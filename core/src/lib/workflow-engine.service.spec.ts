@@ -1,6 +1,6 @@
 import { fakeAsync, flush, TestBed } from "@angular/core/testing";
 import { provideMockActions } from "@ngrx/effects/testing";
-import { Action, Store } from "@ngrx/store";
+import { Action, createSelector, Store } from "@ngrx/store";
 import { MockStore, provideMockStore } from "@ngrx/store/testing";
 import { Observable, of } from "rxjs";
 
@@ -13,6 +13,7 @@ import { WorkflowEngine } from "./workflow-engine.service";
 import { WorkflowStepAction } from "./workflow-step-activators";
 import {
     busy,
+    contextUpdated,
     goto,
     nextStep,
     previousStep,
@@ -20,7 +21,8 @@ import {
 } from "./workflow.events";
 import { idle } from "./workflow.events";
 import { WorkflowUpdate } from "./workflow-update";
-import { Workflow } from ".";
+import { Workflow } from "./workflow";
+import { select } from "./step-builders";
 
 const mockOf = (mock: unknown) => mock as jest.Mock;
 
@@ -115,7 +117,7 @@ describe("WorkflowEngine", () => {
             });
         });
 
-        it("goes to a speicif step mentiond in a goto return value", done => {
+        it("goes to a specific step mentiond in a goto return value", done => {
             const { activations, workflow } = getSetup([
                 "exec",
                 "exec",
@@ -134,9 +136,9 @@ describe("WorkflowEngine", () => {
             });
         });
 
-        it("waits for an 'waitOn' step to complete", done => {
+        it("waits for an 'load' step to complete", done => {
             const { activations, awaiters, WorkflowChanges$ } =
-                getExecutedWorkflow("exec", "waitOn", "exec");
+                getExecutedWorkflow("exec", "load", "exec");
 
             expect(activations[1]).toBeCalledTimes(1);
             expect(activations[2]).not.toHaveBeenCalled();
@@ -151,9 +153,9 @@ describe("WorkflowEngine", () => {
             awaiters[1].complete();
         });
 
-        it("waitOn step can emit multiple events", fakeAsync(() => {
+        it("load step can emit multiple events", fakeAsync(() => {
             const { activations, awaiters } = getExecutedWorkflow(
-                "waitOn",
+                "load",
                 "exec"
             );
             expect(dispatchFn).toHaveBeenCalledTimes(1);
@@ -337,7 +339,7 @@ describe("WorkflowEngine", () => {
                     createTestEvent("COMPLETION")
                 );
                 const { awaiters } = getExecutedWorkflow(
-                    ["waitOn"],
+                    ["load"],
                     onCompletionFn
                 );
 
@@ -355,7 +357,7 @@ describe("WorkflowEngine", () => {
                     createTestEvent("C3"),
                 ]);
                 const { awaiters, WorkflowChanges$ } = getExecutedWorkflow(
-                    ["waitOn"],
+                    ["load"],
                     onCompletionFn
                 );
 
@@ -373,6 +375,21 @@ describe("WorkflowEngine", () => {
                 expect(dispatchFn.mock.calls[1][0].verb).toEqual("C2");
                 expect(dispatchFn.mock.calls[2][0].verb).toEqual("C3");
             }));
+        });
+
+        describe("when contextUpdated is raised", () => {
+            it("will update the context from a select step", done => {
+                const wf = {
+                    steps: [
+                        select(
+                            "testSelect",
+                            createSelector(() =>
+                                of(contextUpdated("UT", { a: "A", b: "B" }))
+                            )
+                        ),
+                    ],
+                } as Workflow;
+            });
         });
 
         //#region Setup Workflow
