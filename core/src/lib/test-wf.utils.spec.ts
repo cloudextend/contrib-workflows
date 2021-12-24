@@ -30,7 +30,7 @@ export function getSteps(...stepTypes: string[]) {
         } else if (t === "load") {
             awaiters[i] = new Subject<RxEvent>();
             activations[i] = jest.fn(() => awaiters[i]);
-            steps[i] = load("STEP_" + i, `Waiting on ${i}...`, activations[i]);
+            steps[i] = load("STEP_" + i, activations[i], `Waiting on ${i}...`);
         } else if (t === "waitFor") {
             activations[i] = jest.fn(() => createTestEvent(`E${i}`));
             const blocker = declareEvent(`blocker${i}`);

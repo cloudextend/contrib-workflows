@@ -65,25 +65,6 @@ describe("'load' Step Builders", () => {
             });
         });
 
-        it("can create a waiting message using context", done => {
-            const context = createTestWorkflowContext();
-            const step = load(
-                "Test1",
-                () => of(createBasicEvent("UT", "A")),
-                [Router],
-                c => `My ${c.workflowName}`
-            );
-            step.activate(context)
-                .pipe(filter(e => occurenceOf(busy, e)))
-                .subscribe({
-                    next: e => {
-                        expect(e.message).toEqual(`My ${context.workflowName}`);
-                        done();
-                    },
-                    error: done.fail,
-                });
-        });
-
         it("can provide an alternate loading message at creation time", () => {
             const busyEvent = busy("UT", { message: "Custom Loading..." });
             const workEvent = createBasicEvent("UT", "Actual Work");
@@ -144,9 +125,11 @@ describe("'load' Step Builders", () => {
         });
 
         it("will store the dependency array with the generated step", () => {
-            const step = load<WorkflowContext, Router>(
+            const step = load(
                 "testDeps",
-                (context, router) => {
+                (_, router) => {
+                    // These line won't execute (as we are not actually activating the step).
+                    // They're there onluy to ensure that the compipler picked up the type properly
                     expect(router).not.toBeFalsy();
                     expect(router.navigate).toBeDefined();
                     return of(createBasicEvent("UT", "aa"));

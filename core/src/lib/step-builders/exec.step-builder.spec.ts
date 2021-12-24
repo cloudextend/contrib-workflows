@@ -61,6 +61,8 @@ describe("Workflow Step Builders", () => {
             const step = exec(
                 "testDeps",
                 (context, router) => {
+                    // These line won't execute (as we are not actually activating the step).
+                    // They're there onluy to ensure that the compipler picked up the type properly
                     expect(router).not.toBeFalsy();
                     expect(router.navigate).toBeDefined();
                     return createBasicEvent("UT", "aa");

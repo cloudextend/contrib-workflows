@@ -1,4 +1,5 @@
 import { fakeAsync, flush, TestBed } from "@angular/core/testing";
+import { HttpClient } from "@angular/common/http";
 import { provideMockActions } from "@ngrx/effects/testing";
 import { Action, createSelector, Store } from "@ngrx/store";
 import { MockStore, provideMockStore } from "@ngrx/store/testing";
@@ -8,9 +9,8 @@ import { args, declareEvent, RxEvent } from "@cloudextend/contrib/events";
 import { NavigationEvent } from "@cloudextend/contrib/routing";
 
 import { getSetup } from "./test-wf.utils.spec";
-import { createTestEvent } from "./test-events.utils.spec";
+import { createBasicEvent, createTestEvent } from "./test-events.utils.spec";
 import { WorkflowEngine } from "./workflow-engine.service";
-import { WorkflowStepAction } from "./workflow-step-activators";
 import {
     busy,
     contextUpdated,
@@ -22,8 +22,9 @@ import {
 import { idle } from "./workflow.events";
 import { WorkflowUpdate } from "./workflow-update";
 import { Workflow } from "./workflow";
-import { select } from "./step-builders";
-import { WorkflowUpdateType } from ".";
+import { exec, load, select } from "./step-builders";
+import { WorkflowUpdateType } from "./workflow-update";
+import { Router } from "@angular/router";
 
 const mockOf = (mock: unknown) => mock as jest.Mock;
 
@@ -37,7 +38,12 @@ describe("WorkflowEngine", () => {
 
     beforeEach(() => {
         TestBed.configureTestingModule({
-            providers: [provideMockStore(), provideMockActions(() => actions$)],
+            providers: [
+                provideMockStore(),
+                provideMockActions(() => actions$),
+                { provide: Router, useValue: Symbol("router") },
+                { provide: HttpClient, useValue: Symbol("HttpClient") },
+            ],
             teardown: { destroyAfterEach: false },
         });
         service = TestBed.inject(WorkflowEngine);
@@ -442,6 +448,53 @@ describe("WorkflowEngine", () => {
         }
 
         //#endregion
+    });
+
+    describe("Given steps have dependencies", () => {
+        it("can inject those dependenies to the step", done => {
+            let wasExecTested = false;
+            let wasLoadTested = false;
+
+            const realRouter = TestBed.inject(Router);
+            const realHttpClient = TestBed.inject(HttpClient);
+
+            const steps = [
+                exec(
+                    "execStep",
+                    (_, router, httpClient) => {
+                        expect(router).toBe(realRouter);
+                        expect(httpClient).toBe(realHttpClient);
+                        wasExecTested = true;
+                        return createBasicEvent("UT", "Exec");
+                    },
+                    [Router, HttpClient]
+                ),
+                load(
+                    "loadStep",
+                    (_, router, httpClient) => {
+                        expect(router).toBe(realRouter);
+                        expect(httpClient).toBe(realHttpClient);
+                        wasLoadTested = true;
+                        return of(createBasicEvent("UT", "Load"));
+                    },
+                    [Router, HttpClient]
+                ),
+            ];
+
+            service
+                .executeWorkflow({
+                    steps,
+                    name: "Test WF",
+                })
+                .subscribe({
+                    complete: () => {
+                        expect(wasExecTested).toBeTruthy();
+                        expect(wasLoadTested).toBeTruthy();
+                        done();
+                    },
+                    error: done.fail,
+                });
+        });
     });
 
     describe("Given a Workflow trigger", () => {

@@ -1,4 +1,10 @@
-import { Inject, Injectable, InjectionToken, Optional } from "@angular/core";
+import {
+    Inject,
+    Injectable,
+    InjectionToken,
+    Injector,
+    Optional,
+} from "@angular/core";
 import { Actions, createEffect } from "@ngrx/effects";
 import { Store } from "@ngrx/store";
 import { Observable, Subscriber } from "rxjs";
@@ -39,6 +45,7 @@ export class WorkflowEngine {
     constructor(
         private readonly actions$: Actions,
         private readonly store: Store,
+        private readonly injector: Injector,
         @Optional()
         @Inject(CE_WF_FALLBACK_PATH)
         fallbackPath: string
@@ -249,9 +256,13 @@ export class WorkflowEngine {
             currentStepIndex === current.nextStepIndex &&
             !current.blockingEvents?.size;
 
+        const deps = !currentStep.dependencies
+            ? []
+            : currentStep.dependencies.map(d => this.injector.get(d));
+
         let autoforward = true;
         currentStep
-            .activate(current.context)
+            .activate(current.context, ...deps)
             .pipe(takeWhile(staySubscribed))
             .subscribe({
                 next: event => {
