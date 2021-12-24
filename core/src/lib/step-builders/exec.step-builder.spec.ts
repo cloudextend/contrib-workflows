@@ -8,6 +8,7 @@ import { exec } from "./exec.step-builder";
 import { nextStep } from "../workflow.events";
 
 import { createBasicEvent } from "../test-events.utils.spec";
+import { Router } from "@angular/router";
 
 describe("Workflow Step Builders", () => {
     let store: Store;
@@ -54,6 +55,19 @@ describe("Workflow Step Builders", () => {
                 ).toBe(expectedMarbles, expectedEvents);
                 expect(handler).toHaveBeenCalledTimes(1);
             });
+        });
+
+        it("will store the dependency array with the generated step", () => {
+            const step = exec(
+                "testDeps",
+                (context, router) => {
+                    expect(router).not.toBeFalsy();
+                    expect(router.navigate).toBeDefined();
+                    return createBasicEvent("UT", "aa");
+                },
+                [Router]
+            );
+            expect(step.dependencies).toEqual([Router]);
         });
     });
 

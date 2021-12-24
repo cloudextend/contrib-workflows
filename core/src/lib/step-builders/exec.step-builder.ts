@@ -113,5 +113,5 @@ export function exec<
         return Array.isArray(next) ? from(next) : of(next);
     };
 
-    return { activate, label };
+    return { activate, dependencies, label };
 }
