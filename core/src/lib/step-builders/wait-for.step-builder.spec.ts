@@ -9,6 +9,8 @@ import { blockedUntil } from "../workflow.events.internal";
 import { waitFor } from "./wait-for.builder";
 
 const testEvent = declareEvent("UT-test-event");
+const testEvent2 = declareEvent("UT-t2");
+const testEvent3 = declareEvent("UT-t3");
 
 describe("waitFor Step Builders", () => {
     let context: WorkflowContext;
@@ -35,6 +37,27 @@ describe("waitFor Step Builders", () => {
             testScheduler.run(({ expectObservable }) => {
                 const expectedEvents = {
                     a: blockedUntil("UTWF", { verbs: [testEvent.verb] }),
+                };
+                const expectedMarbles = "(a|)";
+
+                expectObservable(step.activate(context)).toBe(
+                    expectedMarbles,
+                    expectedEvents
+                );
+            });
+        });
+
+        it("can wait for multiple events", () => {
+            const step = waitFor([testEvent, testEvent2, testEvent3]);
+            testScheduler.run(({ expectObservable }) => {
+                const expectedEvents = {
+                    a: blockedUntil("UTWF", {
+                        verbs: [
+                            testEvent.verb,
+                            testEvent2.verb,
+                            testEvent3.verb,
+                        ],
+                    }),
                 };
                 const expectedMarbles = "(a|)";
 

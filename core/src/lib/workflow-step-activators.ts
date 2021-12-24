@@ -8,11 +8,7 @@ export type WorkflowStepAction<
     ContextType extends WorkflowContext = WorkflowContext
 > = (context: ContextType) => RxEvent | RxEvent[];
 
-// eslint-disable-next-line @typescript-eslint/ban-types
-export type NonMemoizedStepSelector = (state: object) => RxEvent | RxEvent[];
-export type WorkflowStepSelector =
-    | Selector<object, RxEvent | RxEvent[]>
-    | NonMemoizedStepSelector;
+export type WorkflowStepSelector = Selector<object, RxEvent | RxEvent[]>;
 
 export type WorkflowStepSelectorFactory<
     ContextType extends WorkflowContext = WorkflowContext

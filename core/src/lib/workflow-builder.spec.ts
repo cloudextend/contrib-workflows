@@ -5,7 +5,7 @@ import { goto, nextStep, previousStep, skipSteps } from "./workflow.events";
 describe("WorkflowBuilder", () => {
     it("sets the given completion function to run at onComplete", () => {
         const onCompletion = jest.fn();
-        const { workflow } = getSetup([], onCompletion);
+        const { workflow } = getSetup([], { onCompletion });
         expect(workflow.onCompletion).toBe(onCompletion);
     });
 

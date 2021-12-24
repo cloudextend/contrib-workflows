@@ -13,5 +13,10 @@ export const workflowEnding = declareEvent(
     args<string>("workflow name")
 );
 
+export const contextUpdated = declareEvent(
+    "#workflow:context Updated",
+    args<{ update: Record<string, unknown> }>()
+);
+
 export const idle = declareEvent("#workflow:idle");
 export const busy = declareEvent("#workflow:busy", args<{ message: string }>());
