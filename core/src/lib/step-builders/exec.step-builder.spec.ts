@@ -3,11 +3,11 @@ import { Store } from "@ngrx/store";
 import { provideMockStore } from "@ngrx/store/testing";
 import { TestScheduler } from "rxjs/testing";
 
+import { createBasicEvent } from "../test-events.utils.spec";
 import { WorkflowContext } from "../workflow-context";
-import { exec } from "./exec.step-builder";
 import { nextStep } from "../workflow.events";
 
-import { createBasicEvent } from "../test-events.utils.spec";
+import { exec } from "./exec.step-builder";
 
 describe("Workflow Step Builders", () => {
     let store: Store;
