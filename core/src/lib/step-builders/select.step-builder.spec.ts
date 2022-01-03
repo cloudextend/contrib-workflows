@@ -33,7 +33,7 @@ describe("Workflow Step Builders", () => {
             const expectedEvents = { a: eventA };
             const expectedMarbles = "(a|)";
 
-            const step = select("Test", () => ngrxSelector);
+            const step = select("Test", ngrxSelector);
             const context = createTestWorkflowContext();
 
             testScheduler.run(({ expectObservable }) => {
@@ -51,7 +51,7 @@ describe("Workflow Step Builders", () => {
             const expectedEvents = { a: eventA };
             const expectedMarbles = "(a|)";
 
-            const step = select("Test", () => customSelector);
+            const step = select("Test", customSelector);
             const context = createTestWorkflowContext();
 
             testScheduler.run(({ expectObservable }) => {
@@ -69,7 +69,7 @@ describe("Workflow Step Builders", () => {
                 a => a
             );
 
-            const step = select("Test", () => multiEventSelector);
+            const step = select("Test", multiEventSelector);
             const storelessContext = {
                 workflowName: "UT",
             } as unknown as WorkflowContext;
@@ -88,7 +88,7 @@ describe("Workflow Step Builders", () => {
             const expectedEvents = { a: eventA, b: eventB };
             const expectedMarbles = "(ab|)";
 
-            const step = select("Test", () => multiEventSelector);
+            const step = select("Test", multiEventSelector);
             const context = createTestWorkflowContext();
 
             testScheduler.run(({ expectObservable }) => {

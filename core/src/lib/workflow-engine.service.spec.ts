@@ -25,8 +25,10 @@ import { Workflow } from "./workflow";
 import { exec, load, select } from "./step-builders";
 import { WorkflowUpdateType } from "./workflow-update";
 import { Router } from "@angular/router";
+import { InjectionToken } from "@angular/core";
 
 const mockOf = (mock: unknown) => mock as jest.Mock;
+const TESTTOKEN = new InjectionToken<{ a: string; b: number }>("TestToken");
 
 describe("WorkflowEngine", () => {
     //#region Setup
@@ -43,6 +45,7 @@ describe("WorkflowEngine", () => {
                 provideMockActions(() => actions$),
                 { provide: Router, useValue: Symbol("router") },
                 { provide: HttpClient, useValue: Symbol("HttpClient") },
+                { provide: TESTTOKEN, useValue: Symbol("InjToken") },
             ],
             teardown: { destroyAfterEach: false },
         });
@@ -457,27 +460,30 @@ describe("WorkflowEngine", () => {
 
             const realRouter = TestBed.inject(Router);
             const realHttpClient = TestBed.inject(HttpClient);
+            const realToken = TestBed.inject(TESTTOKEN);
 
             const steps = [
                 exec(
                     "execStep",
-                    (_, router, httpClient) => {
+                    (_, router, httpClient, token) => {
                         expect(router).toBe(realRouter);
                         expect(httpClient).toBe(realHttpClient);
+                        expect(token).toBe(realToken);
                         wasExecTested = true;
                         return createBasicEvent("UT", "Exec");
                     },
-                    [Router, HttpClient]
+                    [Router, HttpClient, TESTTOKEN]
                 ),
                 load(
                     "loadStep",
-                    (_, router, httpClient) => {
+                    (_, router, httpClient, token) => {
                         expect(router).toBe(realRouter);
                         expect(httpClient).toBe(realHttpClient);
+                        expect(token).toBe(realToken);
                         wasLoadTested = true;
                         return of(createBasicEvent("UT", "Load"));
                     },
-                    [Router, HttpClient]
+                    [Router, HttpClient, TESTTOKEN]
                 ),
             ];
 
