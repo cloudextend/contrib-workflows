@@ -1,6 +1,8 @@
 import { Type } from "@angular/core";
-import { RxEvent } from "@cloudextend/contrib/events";
 import { concat, Observable, of } from "rxjs";
+
+import { RxEvent } from "@cloudextend/contrib/events";
+
 import { WorkflowContext } from "../workflow-context";
 import { WorkflowStep } from "../workflow-step";
 import { busy, idle } from "../workflow.events";
