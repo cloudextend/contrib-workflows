@@ -14,7 +14,7 @@ export function exec<T extends WorkflowContext = WorkflowContext>(
 
 export function exec<T extends WorkflowContext = WorkflowContext>(
     label: string,
-    handler: (contet: T) => RxEvent | RxEvent[]
+    handler: (context: T) => RxEvent | RxEvent[]
 ): WorkflowStep<T>;
 
 export function exec<D1, T extends WorkflowContext = WorkflowContext>(
