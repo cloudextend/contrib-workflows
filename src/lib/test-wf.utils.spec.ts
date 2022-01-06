@@ -27,10 +27,10 @@ export function getSteps(...stepTypes: string[]) {
                 })
             );
             steps[i] = exec("STEP_" + i, activations[i]);
-        } else if (t === "waitOn") {
+        } else if (t === "load") {
             awaiters[i] = new Subject<RxEvent>();
             activations[i] = jest.fn(() => awaiters[i]);
-            steps[i] = load("STEP_" + i, `Waiting on ${i}...`, activations[i]);
+            steps[i] = load("STEP_" + i, activations[i], `Waiting on ${i}...`);
         } else if (t === "waitFor") {
             activations[i] = jest.fn(() => createTestEvent(`E${i}`));
             const blocker = declareEvent(`blocker${i}`);
@@ -45,20 +45,13 @@ export function getSteps(...stepTypes: string[]) {
     return { activations, awaiters, steps };
 }
 
-class TestableWorkflow implements Workflow {
-    constructor(
-        public readonly steps: WorkflowStep[],
-        public readonly onCompletion?: WorkflowStepAction
-    ) {}
-    readonly name = "UT";
-}
-
-export function getSetup(
-    stepTypes: string[],
-    onCompletion?: WorkflowStepAction
-) {
+export function getSetup(stepTypes: string[], wfConfig?: Partial<Workflow>) {
     const { activations, awaiters, steps } = getSteps(...stepTypes);
-    const workflow = new TestableWorkflow(steps, onCompletion);
+    const workflow = {
+        name: "UT",
+        ...wfConfig,
+        steps,
+    };
 
     return { activations, awaiters, workflow };
 }

@@ -1,3 +1,5 @@
+import { WorkflowContext } from ".";
+
 export enum WorkflowUpdateType {
     beginWorkflow,
     beginStep,
@@ -5,7 +7,8 @@ export enum WorkflowUpdateType {
     endWorkflow,
 }
 
-export interface WorkflowUpdate {
+export interface WorkflowUpdate<T extends WorkflowContext = WorkflowContext> {
+    context: T;
     type: WorkflowUpdateType;
     stepLabel?: string;
     stepIndex?: number;

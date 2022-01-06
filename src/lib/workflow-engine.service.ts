@@ -1,7 +1,13 @@
-import { Inject, Injectable, InjectionToken, Optional } from "@angular/core";
+import {
+    Inject,
+    Injectable,
+    InjectionToken,
+    Injector,
+    Optional,
+} from "@angular/core";
 import { Actions, createEffect } from "@ngrx/effects";
 import { Store } from "@ngrx/store";
-import { Observable, Subject } from "rxjs";
+import { Observable, Subscriber } from "rxjs";
 import { filter, map, takeWhile } from "rxjs/operators";
 
 import {
@@ -18,20 +24,20 @@ import { WorkflowStep } from "./workflow-step";
 import { skipSteps, nextStep, previousStep, goto } from "./workflow.events";
 import { WorkflowUpdate, WorkflowUpdateType } from "./workflow-update";
 import { blockedUntil } from "./workflow.events.internal";
-import { idle } from ".";
+import { contextUpdated, idle } from ".";
 
 export const CE_WF_FALLBACK_PATH = new InjectionToken("CloudExtend_Home_Path");
 
 export type WorkflowBuilder = (event: RxEvent) => Workflow;
 
-interface ExecutingWorkflow<T extends WorkflowContext = WorkflowContext> {
-    context: T;
+interface ExecutingWorkflow {
+    context: WorkflowContext;
     nextStepIndex: number;
     stepIndexByLabel: Map<string, number>;
     doNotIndex?: boolean;
     blockingEvents?: Set<string>;
-    workflow: Workflow<T>;
-    workflowEvents$: Subject<WorkflowUpdate>;
+    workflow: Workflow;
+    updates$: Subscriber<WorkflowUpdate>;
 }
 
 @Injectable({ providedIn: "root" })
@@ -39,6 +45,7 @@ export class WorkflowEngine {
     constructor(
         private readonly actions$: Actions,
         private readonly store: Store,
+        private readonly injector: Injector,
         @Optional()
         @Inject(CE_WF_FALLBACK_PATH)
         fallbackPath: string
@@ -120,7 +127,8 @@ export class WorkflowEngine {
                     }
 
                     const currentWf = current.workflow;
-                    current.workflowEvents$.next({
+                    current.updates$.next({
+                        context: current.context,
                         type: WorkflowUpdateType.endStep,
                         stepIndex: current.nextStepIndex,
                         stepLabel:
@@ -161,33 +169,36 @@ export class WorkflowEngine {
         WorkflowBuilder
     >();
 
-    public executeWorkflow(workflow: Workflow): Observable<WorkflowUpdate> {
+    public executeWorkflow<T extends WorkflowContext = WorkflowContext>(
+        workflow: Workflow<T>
+    ): Observable<WorkflowUpdate<T>> {
         const context = {
             isBackgroundWorkflow: workflow.isBackgroundWorkflow,
             workflowName: workflow.name,
             store: this.store,
-        } as WorkflowContext;
+        } as T;
 
         const stepIndexByLabel = workflow.doNotIndex
             ? new Map<string, number>()
             : WorkflowEngine.createStepIndexByLabelMap(workflow.steps);
 
-        const workflowEvents$ = new Subject<WorkflowUpdate>();
-        this.current = {
-            workflow,
-            context,
-            stepIndexByLabel,
-            workflowEvents$,
-            nextStepIndex: 0,
-            doNotIndex: workflow.doNotIndex,
-        };
+        return new Observable<WorkflowUpdate<T>>(subscriber => {
+            this.current = {
+                workflow: workflow as Workflow,
+                context,
+                stepIndexByLabel,
+                updates$: subscriber,
+                nextStepIndex: 0,
+                doNotIndex: workflow.doNotIndex,
+            };
 
-        workflowEvents$.next({
-            type: WorkflowUpdateType.beginWorkflow,
-            workflowName: workflow.name,
+            subscriber.next({
+                context,
+                type: WorkflowUpdateType.beginWorkflow,
+                workflowName: workflow.name,
+            } as WorkflowUpdate<T>);
+            this.activateNextStep();
         });
-        this.activateNextStep();
-        return workflowEvents$;
     }
 
     public registerWorkflow(
@@ -213,11 +224,12 @@ export class WorkflowEngine {
         } else if (current.nextStepIndex >= current.workflow.steps.length) {
             current.nextStepIndex = 0;
             this.executeOnCompleteAction();
-            current.workflowEvents$.next({
+            current.updates$.next({
+                context: current.context,
                 type: WorkflowUpdateType.endWorkflow,
                 workflowName: current.workflow.name,
             });
-            current.workflowEvents$.complete();
+            current.updates$.complete();
 
             delete this.current;
             return;
@@ -230,8 +242,11 @@ export class WorkflowEngine {
         const currentStepIndex = current.nextStepIndex;
         const currentStep = current.workflow.steps[currentStepIndex];
 
-        current.workflowEvents$.next({
+        current.updates$.next({
+            context: current.context,
             type: WorkflowUpdateType.beginStep,
+            stepIndex: currentStepIndex,
+            stepLabel: currentStep.label,
             workflowName: current.workflow.name,
         });
 
@@ -241,9 +256,13 @@ export class WorkflowEngine {
             currentStepIndex === current.nextStepIndex &&
             !current.blockingEvents?.size;
 
+        const deps = !currentStep.dependencies
+            ? []
+            : currentStep.dependencies.map(d => this.injector.get(d));
+
         let autoforward = true;
         currentStep
-            .activate(current.context)
+            .activate(current.context, ...deps)
             .pipe(takeWhile(staySubscribed))
             .subscribe({
                 next: event => {
@@ -262,6 +281,11 @@ export class WorkflowEngine {
                     } else if (occurenceOf(navigation, event)) {
                         this.store.dispatch(event);
                         autoforward = false;
+                    } else if (occurenceOf(contextUpdated, event)) {
+                        Object.assign(
+                            current.context,
+                            (event as ReturnType<typeof contextUpdated>).update
+                        );
                     } else if (occurenceOf(blockedUntil, event)) {
                         autoforward = false;
                         current.blockingEvents = new Set<string>(
@@ -273,14 +297,15 @@ export class WorkflowEngine {
                         this.store.dispatch(event);
                     }
 
-                    current.workflowEvents$.next({
+                    current.updates$.next({
+                        context: current.context,
                         type: WorkflowUpdateType.endStep,
                         stepIndex: currentStepIndex,
                         stepLabel: currentStep.label,
                         workflowName: current.workflow.name,
                     });
                 },
-                error: current.workflowEvents$.error,
+                error: current.updates$.error,
                 complete: () => {
                     if (autoforward) {
                         if (current.nextStepIndex === currentStepIndex) {
@@ -299,7 +324,7 @@ export class WorkflowEngine {
                 this.current.workflow.onCompletion(context);
 
             if (Array.isArray(completionEvents)) {
-                completionEvents.forEach(this.store.dispatch);
+                completionEvents.forEach(a => this.store.dispatch(a));
             } else {
                 this.store.dispatch(completionEvents);
             }
