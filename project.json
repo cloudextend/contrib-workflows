@@ -1,21 +1,21 @@
 {
     "projectType": "library",
-    "root": "libs/contrib/workflows/core",
-    "sourceRoot": "libs/contrib/workflows/core/src",
+    "root": "libs/contrib/workflows",
+    "sourceRoot": "libs/contrib/workflows/src",
     "prefix": "cloudextend",
     "targets": {
         "build": {
             "executor": "@nrwl/angular:ng-packagr-lite",
             "options": {
-                "tsConfig": "libs/contrib/workflows/core/tsconfig.lib.json",
-                "project": "libs/contrib/workflows/core/ng-package.json"
+                "tsConfig": "libs/contrib/workflows/tsconfig.lib.json",
+                "project": "libs/contrib/workflows/ng-package.json"
             }
         },
         "test": {
             "executor": "@nrwl/jest:jest",
-            "outputs": ["coverage/libs/contrib/workflows/core"],
+            "outputs": ["coverage/libs/contrib/workflows"],
             "options": {
-                "jestConfig": "libs/contrib/workflows/core/jest.config.js",
+                "jestConfig": "libs/contrib/workflows/jest.config.js",
                 "passWithNoTests": true
             }
         },
@@ -23,8 +23,8 @@
             "executor": "@nrwl/linter:eslint",
             "options": {
                 "lintFilePatterns": [
-                    "libs/contrib/workflows/core/src/**/*.ts",
-                    "libs/contrib/workflows/core/src/**/*.html"
+                    "libs/contrib/workflows/src/**/*.ts",
+                    "libs/contrib/workflows/src/**/*.html"
                 ]
             }
         }
