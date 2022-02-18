@@ -5,9 +5,7 @@ import { TestScheduler } from "rxjs/testing";
 
 import { WorkflowContext } from "../workflow-context";
 import { select } from "./select.step-builder";
-import { createBasicEvent } from "../test-events.utils.spec";
-import { stat } from "fs";
-import { RxEvent } from "@cloudextend/contrib/events";
+import { createBasicEvent } from "../test-events.spec.utils";
 
 interface DummyFeat1 {
     val1: string;
@@ -28,7 +26,10 @@ describe("Workflow Step Builders", () => {
     describe("select", () => {
         it("creates a WF step that returns the result of a ngrx selector", () => {
             const eventA = createBasicEvent("UT", "A");
-            const ngrxSelector = createSelector(() => eventA);
+            const ngrxSelector = createSelector(
+                () => eventA,
+                a => a
+            );
 
             const expectedEvents = { a: eventA };
             const expectedMarbles = "(a|)";
@@ -62,6 +63,12 @@ describe("Workflow Step Builders", () => {
             });
         });
 
+        it("throws if no selectors were provided", () => {
+            const step = select("Test", undefined as any);
+            const context = createTestWorkflowContext();
+            expect(() => step.activate(context)).toThrow();
+        });
+
         it("throws if the step is not provided with a store", () => {
             const eventA = createBasicEvent("UT", "A");
             const multiEventSelector = createSelector(
@@ -74,6 +81,26 @@ describe("Workflow Step Builders", () => {
                 workflowName: "UT",
             } as unknown as WorkflowContext;
             expect(() => step.activate(storelessContext)).toThrow();
+        });
+
+        it("can join multiple selectors", done => {
+            const step = select(
+                "Test",
+                () => "A",
+                () => "B",
+                (context, a, b) =>
+                    createBasicEvent(context.workflowName, `${a}${b}`)
+            );
+            const context = createTestWorkflowContext();
+
+            step.activate(context).subscribe({
+                next: event => {
+                    expect(event.source).toEqual(context.workflowName);
+                    expect(event.verb).toEqual("AB");
+                    done();
+                },
+                error: done.fail,
+            });
         });
 
         it("streams events one by one whe multiple events are returned", () => {

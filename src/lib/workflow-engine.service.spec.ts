@@ -1,15 +1,15 @@
 import { fakeAsync, flush, TestBed } from "@angular/core/testing";
 import { HttpClient } from "@angular/common/http";
 import { provideMockActions } from "@ngrx/effects/testing";
-import { Action, createSelector, Store } from "@ngrx/store";
+import { Action, Store } from "@ngrx/store";
 import { MockStore, provideMockStore } from "@ngrx/store/testing";
 import { Observable, of } from "rxjs";
 
 import { args, declareEvent, RxEvent } from "@cloudextend/contrib/events";
 import { NavigationEvent } from "@cloudextend/contrib/routing";
 
-import { getSetup } from "./test-wf.utils.spec";
-import { createBasicEvent, createTestEvent } from "./test-events.utils.spec";
+import { getSetup } from "./test-wf.spec.utils";
+import { createBasicEvent, createTestEvent } from "./test-events.spec.utils";
 import { WorkflowEngine } from "./workflow-engine.service";
 import {
     busy,
@@ -26,6 +26,8 @@ import { exec, load, select } from "./step-builders";
 import { WorkflowUpdateType } from "./workflow-update";
 import { Router } from "@angular/router";
 import { InjectionToken } from "@angular/core";
+import { callsTo } from "@cloudextend/testing/utils";
+import { finalize, last } from "rxjs/operators";
 
 const mockOf = (mock: unknown) => mock as jest.Mock;
 const TESTTOKEN = new InjectionToken<{ a: string; b: number }>("TestToken");
@@ -99,6 +101,26 @@ describe("WorkflowEngine", () => {
         it("executes the first step on start", () => {
             const { activations } = getExecutedWorkflow(["exec", "exec"]);
             expect(activations[0]).toHaveBeenCalledTimes(1);
+        });
+
+        it("will include the initial context values given by the client", done => {
+            const { activations, workflow } = getSetup(["exec", "exec"]);
+            service
+                .executeWorkflow(workflow, { someProp: "12345" })
+                .pipe(
+                    finalize(() => {
+                        expect(
+                            callsTo(activations[0]).first().args[0].someProp
+                        ).toEqual("12345");
+                        expect(
+                            callsTo(activations[1]).first().args[0].someProp
+                        ).toEqual("12345");
+                    })
+                )
+                .subscribe({
+                    complete: done,
+                    error: done.fail,
+                });
         });
 
         it("advances the steps automatically, when there's nothing to wait on", () => {
@@ -397,11 +419,9 @@ describe("WorkflowEngine", () => {
         describe("when contextUpdated is raised", () => {
             it("will update the context from a select step", done => {
                 const step = select("testSelect", () =>
-                    createSelector(() =>
-                        contextUpdated("UT", {
-                            update: { a: "A", b: "B" },
-                        })
-                    )
+                    contextUpdated("UT", {
+                        update: { a: "A", b: "B" },
+                    })
                 );
                 const wf = { steps: [step] } as Workflow;
 

@@ -10,7 +10,7 @@ import { occurenceOf } from "@cloudextend/contrib/events";
 import { WorkflowContext } from "../workflow-context";
 import { load } from "./load.step-builder";
 import { busy, idle } from "../workflow.events";
-import { createBasicEvent } from "../test-events.utils.spec";
+import { createBasicEvent } from "../test-events.spec.utils";
 import { Router } from "@angular/router";
 
 describe("'load' Step Builders", () => {
@@ -74,11 +74,9 @@ describe("'load' Step Builders", () => {
             const expectedEvents = { a: busyEvent, b: workEvent, c: idleEvent };
             const expectedMarbles = "(abc|)";
 
-            const step = load(
-                "Lengthy Step",
-                () => workEvent$,
-                "Custom Loading..."
-            );
+            const step = load("Lengthy Step", () => workEvent$, {
+                loadingMessage: "Custom Loading...",
+            });
             const context = createTestWorkflowContext();
 
             testScheduler.run(({ expectObservable }) => {

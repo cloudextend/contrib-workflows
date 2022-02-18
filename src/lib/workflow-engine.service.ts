@@ -170,9 +170,11 @@ export class WorkflowEngine {
     >();
 
     public executeWorkflow<T extends WorkflowContext = WorkflowContext>(
-        workflow: Workflow<T>
+        workflow: Workflow<T>,
+        initialContext?: Partial<T>
     ): Observable<WorkflowUpdate<T>> {
         const context = {
+            ...initialContext,
             isBackgroundWorkflow: workflow.isBackgroundWorkflow,
             workflowName: workflow.name,
             store: this.store,
