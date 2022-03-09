@@ -99,7 +99,7 @@ describe("Workflow Step Builders", () => {
                     expect(event.verb).toEqual("AB");
                     done();
                 },
-                error: done.fail,
+                error: done,
             });
         });
 
