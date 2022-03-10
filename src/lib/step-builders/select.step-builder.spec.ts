@@ -84,14 +84,13 @@ describe("Workflow Step Builders", () => {
         });
 
         it("can join multiple selectors", done => {
+            const context = createTestWorkflowContext();
             const step = select(
                 "Test",
                 () => "A",
                 () => "B",
-                (context, a, b) =>
-                    createBasicEvent(context.workflowName, `${a}${b}`)
+                (a, b) => createBasicEvent(context.workflowName, `${a}${b}`)
             );
-            const context = createTestWorkflowContext();
 
             step.activate(context).subscribe({
                 next: event => {
@@ -99,7 +98,7 @@ describe("Workflow Step Builders", () => {
                     expect(event.verb).toEqual("AB");
                     done();
                 },
-                error: done.fail,
+                error: done,
             });
         });
 

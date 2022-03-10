@@ -4,6 +4,8 @@ import {
     InjectionToken,
     Injector,
     Optional,
+    ProviderToken,
+    Type,
 } from "@angular/core";
 import { Actions, createEffect } from "@ngrx/effects";
 import { Store } from "@ngrx/store";
@@ -258,9 +260,7 @@ export class WorkflowEngine {
             currentStepIndex === current.nextStepIndex &&
             !current.blockingEvents?.size;
 
-        const deps = !currentStep.dependencies
-            ? []
-            : currentStep.dependencies.map(d => this.injector.get(d));
+        const deps = currentStep.dependencies ?? [];
 
         let autoforward = true;
         currentStep

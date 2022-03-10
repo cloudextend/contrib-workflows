@@ -59,7 +59,7 @@ describe("Workflow Step Builders", () => {
         it("will store the dependency array with the generated step", () => {
             const step = exec(
                 "testDeps",
-                (_, router) => {
+                router => {
                     // These line won't execute (as we are not actually activating the step).
                     // They're there onluy to ensure that the compipler picked up the type properly
                     expect(router).not.toBeFalsy();

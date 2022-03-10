@@ -1,3 +1,4 @@
+import { InjectionToken } from "@angular/core";
 import { Store } from "@ngrx/store";
 
 export interface WorkflowContext extends Record<string, unknown> {

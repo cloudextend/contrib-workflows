@@ -83,7 +83,7 @@ describe("WorkflowEngine", () => {
                         expect(dispatchedEvent.pathSegments).toEqual(["/"]);
                         done();
                     },
-                    error: done.fail,
+                    error: done,
                 });
             });
         });
@@ -91,7 +91,7 @@ describe("WorkflowEngine", () => {
         it("throws an error if a named step is requested", done => {
             actions$ = of(goto("UTWF", "MyStep"));
             service.onGoTo$.subscribe({
-                next: () => done.fail(),
+                next: () => done("Execution of this line was unexpected"),
                 error: () => done(),
             });
         });
@@ -119,7 +119,7 @@ describe("WorkflowEngine", () => {
                 )
                 .subscribe({
                     complete: done,
-                    error: done.fail,
+                    error: done,
                 });
         });
 
@@ -145,7 +145,7 @@ describe("WorkflowEngine", () => {
                     expect(activations[1]).toHaveBeenCalledTimes(1);
                     done();
                 },
-                error: done.fail,
+                error: done,
             });
         });
 
@@ -164,7 +164,7 @@ describe("WorkflowEngine", () => {
                     expect(activations[2]).toHaveBeenCalledTimes(1);
                     done();
                 },
-                error: done.fail,
+                error: done,
             });
         });
 
@@ -179,7 +179,7 @@ describe("WorkflowEngine", () => {
                     expect(activations[2]).toHaveBeenCalledTimes(1);
                     done();
                 },
-                error: done.fail,
+                error: done,
             });
             awaiters[1].next(createTestEvent("E1"));
             awaiters[1].complete();
@@ -341,7 +341,7 @@ describe("WorkflowEngine", () => {
 
                 actions$ = of(goto("UTWF", "INVALID_STEP"));
                 service.onGoTo$.subscribe({
-                    next: () => done.fail(),
+                    next: () => done("Execution of this line was unexpected"),
                     error: () => done(),
                 });
             });
@@ -360,7 +360,7 @@ describe("WorkflowEngine", () => {
                         expect(activations[0]).toHaveBeenCalledTimes(2);
                         done();
                     },
-                    error: done.fail,
+                    error: done,
                 });
             });
         });
@@ -402,7 +402,7 @@ describe("WorkflowEngine", () => {
                             dispatchFn.mockReset();
                         }
                     },
-                    error: done.fail,
+                    error: done,
                     complete: () => {
                         expect(dispatchFn).toHaveBeenCalledTimes(3);
 
@@ -428,7 +428,7 @@ describe("WorkflowEngine", () => {
                 let expectationMet = false;
 
                 service.executeWorkflow(wf).subscribe({
-                    error: done.fail,
+                    error: done,
                     next: wfUpdate => {
                         if (
                             wfUpdate.type === WorkflowUpdateType.endStep &&
@@ -518,7 +518,7 @@ describe("WorkflowEngine", () => {
                         expect(wasLoadTested).toBeTruthy();
                         done();
                     },
-                    error: done.fail,
+                    error: done,
                 });
         });
     });
