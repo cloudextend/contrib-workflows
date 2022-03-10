@@ -1,4 +1,4 @@
-import { Type } from "@angular/core";
+import { ProviderToken, Type } from "@angular/core";
 import { RxEvent } from "@cloudextend/contrib/events";
 import { Observable } from "rxjs";
 
@@ -16,5 +16,5 @@ export interface WorkflowStep<
 > {
     readonly label: string;
     readonly activate: WorkflowStepActivateHandler<ContextType>;
-    readonly dependencies?: Type<any>[];
+    readonly dependencies?: ProviderToken<any>[];
 }
