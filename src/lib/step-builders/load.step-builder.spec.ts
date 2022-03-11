@@ -107,7 +107,11 @@ describe("'load' Step Builders", () => {
                 "testDeps",
                 _ => workEvent$,
                 [TEST_DEP],
-                dep => ({ loadingMessage: `Value was ${dep}` })
+                dep => {
+                    console.log(dep);
+                    console.log(JSON.stringify(dep));
+                    return { loadingMessage: `Value was ${dep}` };
+                }
             );
 
             const expectedEvents = { a: busyEvent, b: workEvent, c: idleEvent };

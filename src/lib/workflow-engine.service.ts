@@ -260,7 +260,9 @@ export class WorkflowEngine {
             currentStepIndex === current.nextStepIndex &&
             !current.blockingEvents?.size;
 
-        const deps = currentStep.dependencies ?? [];
+        const deps = !currentStep.dependencies
+            ? []
+            : currentStep.dependencies.map(d => this.injector.get(d));
 
         let autoforward = true;
         currentStep

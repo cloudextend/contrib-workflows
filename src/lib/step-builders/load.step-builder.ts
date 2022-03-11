@@ -105,7 +105,7 @@ export function load<T extends WorkflowContext = WorkflowContext>(
                 : optsOrBuilder;
 
         if (context.isBackgroundWorkflow || options?.isBackgroundStep) {
-            return lengthyWork(context, ...d);
+            return lengthyWork(...d, context);
         }
 
         const busy$ = of(

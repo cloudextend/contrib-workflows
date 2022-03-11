@@ -1,5 +1,4 @@
 import { fakeAsync, flush, TestBed } from "@angular/core/testing";
-import { HttpClient } from "@angular/common/http";
 import { provideMockActions } from "@ngrx/effects/testing";
 import { Action, Store } from "@ngrx/store";
 import { MockStore, provideMockStore } from "@ngrx/store/testing";
@@ -24,10 +23,14 @@ import { WorkflowUpdate } from "./workflow-update";
 import { Workflow } from "./workflow";
 import { exec, load, select } from "./step-builders";
 import { WorkflowUpdateType } from "./workflow-update";
-import { Router } from "@angular/router";
 import { InjectionToken } from "@angular/core";
-import { callsTo } from "@cloudextend/testing/utils";
-import { finalize, last } from "rxjs/operators";
+import {
+    callsTo,
+    mockLogService,
+    provideMockLogService,
+} from "@cloudextend/testing/utils";
+import { finalize } from "rxjs/operators";
+import { LogService } from "@cloudextend/common/core";
 
 const mockOf = (mock: unknown) => mock as jest.Mock;
 const TESTTOKEN = new InjectionToken<{ a: string; b: number }>("TestToken");
@@ -45,8 +48,6 @@ describe("WorkflowEngine", () => {
             providers: [
                 provideMockStore(),
                 provideMockActions(() => actions$),
-                { provide: Router, useValue: Symbol("router") },
-                { provide: HttpClient, useValue: Symbol("HttpClient") },
                 { provide: TESTTOKEN, useValue: Symbol("InjToken") },
             ],
             teardown: { destroyAfterEach: false },
@@ -478,32 +479,26 @@ describe("WorkflowEngine", () => {
             let wasExecTested = false;
             let wasLoadTested = false;
 
-            const realRouter = TestBed.inject(Router);
-            const realHttpClient = TestBed.inject(HttpClient);
             const realToken = TestBed.inject(TESTTOKEN);
 
             const steps = [
                 exec(
                     "execStep",
-                    (_, router, httpClient, token) => {
-                        expect(router).toBe(realRouter);
-                        expect(httpClient).toBe(realHttpClient);
+                    token => {
                         expect(token).toBe(realToken);
                         wasExecTested = true;
                         return createBasicEvent("UT", "Exec");
                     },
-                    [Router, HttpClient, TESTTOKEN]
+                    [TESTTOKEN]
                 ),
                 load(
                     "loadStep",
-                    (_, router, httpClient, token) => {
-                        expect(router).toBe(realRouter);
-                        expect(httpClient).toBe(realHttpClient);
+                    token => {
                         expect(token).toBe(realToken);
                         wasLoadTested = true;
                         return of(createBasicEvent("UT", "Load"));
                     },
-                    [Router, HttpClient, TESTTOKEN]
+                    [TESTTOKEN]
                 ),
             ];
 
