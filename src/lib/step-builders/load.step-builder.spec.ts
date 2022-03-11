@@ -107,11 +107,7 @@ describe("'load' Step Builders", () => {
                 "testDeps",
                 _ => workEvent$,
                 [TEST_DEP],
-                dep => {
-                    console.log(dep);
-                    console.log(JSON.stringify(dep));
-                    return { loadingMessage: `Value was ${dep}` };
-                }
+                dep => ({ loadingMessage: `Value was ${dep}` })
             );
 
             const expectedEvents = { a: busyEvent, b: workEvent, c: idleEvent };
@@ -120,7 +116,7 @@ describe("'load' Step Builders", () => {
             const context = createTestWorkflowContext();
 
             testScheduler.run(({ expectObservable }) => {
-                expectObservable(step.activate(context)).toBe(
+                expectObservable(step.activate(context, dependencyValue)).toBe(
                     expectedMarbles,
                     expectedEvents
                 );
