@@ -356,12 +356,11 @@ export class WorkflowEngine {
         }
 
         if (this.current.doNotIndex) {
-            console.warn(
+            throw new Error(
                 `Unable to navigate to '${label}' step.` +
                     "The workflow had disabled indexing and therefore " +
                     "'goto' events are unsupported for this workflow."
             );
-            return;
         }
 
         const stepIndex = this.current.stepIndexByLabel.get(label);
