@@ -24,13 +24,9 @@ import { Workflow } from "./workflow";
 import { exec, load, select } from "./step-builders";
 import { WorkflowUpdateType } from "./workflow-update";
 import { InjectionToken } from "@angular/core";
-import {
-    callsTo,
-    mockLogService,
-    provideMockLogService,
-} from "@cloudextend/testing/utils";
+import { callsTo } from "@cloudextend/testing/utils";
 import { finalize } from "rxjs/operators";
-import { LogService } from "@cloudextend/common/core";
+import { TestScheduler } from "rxjs/testing";
 
 const mockOf = (mock: unknown) => mock as jest.Mock;
 const TESTTOKEN = new InjectionToken<{ a: string; b: number }>("TestToken");
@@ -99,9 +95,14 @@ describe("WorkflowEngine", () => {
     });
 
     describe("Given an active workflow", () => {
-        it("executes the first step on start", () => {
-            const { activations } = getExecutedWorkflow(["exec", "exec"]);
-            expect(activations[0]).toHaveBeenCalledTimes(1);
+        it("executes the first step on start", done => {
+            afterExecutingWorkflow(["exec", "exec"]).subscribe({
+                next: ({ activations }) => {
+                    expect(activations[0]).toHaveBeenCalledTimes(1);
+                    done();
+                },
+                error: done,
+            });
         });
 
         it("will include the initial context values given by the client", done => {
@@ -124,9 +125,14 @@ describe("WorkflowEngine", () => {
                 });
         });
 
-        it("advances the steps automatically, when there's nothing to wait on", () => {
-            const { activations } = getExecutedWorkflow(["exec", "exec"]);
-            expect(activations[1]).toHaveBeenCalledTimes(1);
+        it("advances the steps automatically, when there's nothing to wait on", done => {
+            afterExecutingWorkflow(["exec", "exec"]).subscribe({
+                next: ({ activations }) => {
+                    expect(activations[1]).toHaveBeenCalledTimes(1);
+                    done();
+                },
+                error: done,
+            });
         });
 
         it("goes to previous step if the step returns 'previousStep' event", done => {
@@ -169,28 +175,33 @@ describe("WorkflowEngine", () => {
             });
         });
 
-        it("waits for an 'load' step to complete", done => {
-            const { activations, awaiters, WorkflowChanges$ } =
-                getExecutedWorkflow(["exec", "load", "exec"]);
+        it("waits for an load step to complete", fakeAsync(() => {
+            const { workflow, activations, awaiters } = getSetup([
+                "exec",
+                "load",
+                "exec",
+            ]);
+
+            service.executeWorkflow(workflow);
+            flush();
 
             expect(activations[1]).toBeCalledTimes(1);
             expect(activations[2]).not.toHaveBeenCalled();
-            WorkflowChanges$.subscribe({
-                complete: () => {
-                    expect(activations[2]).toHaveBeenCalledTimes(1);
-                    done();
-                },
-                error: done,
-            });
+
             awaiters[1].next(createTestEvent("E1"));
             awaiters[1].complete();
-        });
+            flush();
+
+            expect(activations[2]).toHaveBeenCalledTimes(1);
+        }));
 
         it("load step can emit multiple events", fakeAsync(() => {
             const { activations, awaiters } = getExecutedWorkflow([
                 "load",
                 "exec",
             ]);
+            flush();
+
             expect(dispatchFn).toHaveBeenCalledTimes(1);
             expect(getDispatchedEvent()?.verb).toEqual(busy.verb);
             dispatchFn.mockReset();
@@ -219,6 +230,7 @@ describe("WorkflowEngine", () => {
                 "waitFor",
                 "exec",
             ]);
+            flush();
 
             expect(activations[0]).toHaveBeenCalledTimes(1);
             expect(activations[2]).not.toHaveBeenCalled();
@@ -236,6 +248,7 @@ describe("WorkflowEngine", () => {
                 "waitFor.busy",
                 "exec",
             ]);
+            flush();
 
             expect(activations[0]).toHaveBeenCalledTimes(1);
             expect(activations[2]).not.toHaveBeenCalled();
@@ -250,7 +263,7 @@ describe("WorkflowEngine", () => {
             expect(dispatchFn.mock.calls[2][0].verb).toBe(idle.verb);
         }));
 
-        it("can pass parameters between steps using context", () => {
+        it("can pass parameters between steps using context", fakeAsync(() => {
             const { activations, workflow } = getSetup([
                 "exec",
                 "exec",
@@ -261,19 +274,22 @@ describe("WorkflowEngine", () => {
                 context["unit_test_flag"] = "123456";
             });
 
-            service.executeWorkflow(workflow).subscribe();
+            service.executeWorkflow(workflow);
+            flush();
 
             const context = activations[2].mock.calls[0][0];
             expect(context.unit_test_flag).toEqual("123456");
-        });
+        }));
 
         describe("when UI steps are present", () => {
-            it("activates next step only on 'nexteStep'", () => {
+            it("activates next step only on 'nexteStep'", fakeAsync(() => {
                 const { activations } = getExecutedWorkflow([
                     "exec",
                     "exec.view",
                     "exec",
                 ]);
+                flush();
+
                 expect(activations[0]).toHaveBeenCalledTimes(1);
                 expect(activations[1]).toHaveBeenCalledTimes(1);
                 expect(activations[2]).not.toHaveBeenCalled();
@@ -286,17 +302,18 @@ describe("WorkflowEngine", () => {
                 expect(activations[0]).not.toHaveBeenCalled();
                 expect(activations[1]).not.toHaveBeenCalled();
                 expect(activations[2]).toHaveBeenCalledTimes(1);
-            });
+            }));
         });
 
         describe("when navigation events are used", () => {
-            it("can navigate to a named step", () => {
+            it("can navigate to a named step", fakeAsync(() => {
                 const { activations } = getExecutedWorkflow([
                     "exec.view",
                     "exec.view",
                     "exec.view",
                     "exec.view",
                 ]);
+                flush();
 
                 expect(activations[0]).toHaveBeenCalledTimes(1);
                 activations[0].mockClear();
@@ -309,9 +326,9 @@ describe("WorkflowEngine", () => {
                     service.onGoTo$.subscribe();
                     expect(activations[i]).toHaveBeenCalledTimes(1);
                 }
-            });
+            }));
 
-            it("will ignore goto's if workflow.doNotIndex is true", () => {
+            it("will ignore gotos if workflow.doNotIndex is true", fakeAsync(() => {
                 const { activations, workflow } = getSetup(
                     ["exec.view", "exec.view", "exec.view", "exec.view"],
                     { doNotIndex: true }
@@ -322,7 +339,8 @@ describe("WorkflowEngine", () => {
                 // eslint-disable-next-line @typescript-eslint/no-empty-function
                 console.warn = () => {};
 
-                service.executeWorkflow(workflow).subscribe();
+                service.executeWorkflow(workflow);
+                flush();
 
                 expect(activations[0]).toHaveBeenCalledTimes(1);
                 activations[0].mockClear();
@@ -331,43 +349,49 @@ describe("WorkflowEngine", () => {
 
                 expect(activations[2]).not.toHaveBeenCalled();
                 actions$ = of(go("STEP_" + 2));
-                service.onGoTo$.subscribe();
+                service.onGoTo$.subscribe({
+                    complete: () => expect(true).toBeFalsy(), // an exception was expected
+                    error: (err: Error) =>
+                        expect(err.message).toContain("disabled indexing"),
+                });
+                flush();
+
                 expect(activations[2]).not.toHaveBeenCalled();
 
                 console.warn = warn;
-            });
+            }));
 
             it("will throw a fault if an unknown step is request", done => {
+                actions$ = of(goto("UTWF", "INVALID_STEP"));
                 getExecutedWorkflow(["exec.view"]);
 
-                actions$ = of(goto("UTWF", "INVALID_STEP"));
                 service.onGoTo$.subscribe({
                     next: () => done("Execution of this line was unexpected"),
                     error: () => done(),
                 });
             });
 
-            it("won't go beyond the start of the workflow when skipping back", done => {
+            it("wont go beyond the start of the workflow when skipping back", fakeAsync(() => {
                 const { activations } = getExecutedWorkflow([
                     "exec.view",
                     "exec",
                 ]);
                 activations[1].mockImplementation(() => skipSteps("UTWF", -5));
+                flush();
 
                 actions$ = of(nextStep("UTWF")); // Move to second step
                 service.onNextStep$.subscribe({
                     next: () => {
                         expect(activations[1]).toHaveBeenCalledTimes(1);
                         expect(activations[0]).toHaveBeenCalledTimes(2);
-                        done();
                     },
-                    error: done,
                 });
-            });
+                flush();
+            }));
         });
 
         describe("When onCompletion handler is provided", () => {
-            it("dispatches it at the end of the workflow", () => {
+            it("dispatches it at the end of the workflow", fakeAsync(() => {
                 const onCompletionFn = jest.fn(() =>
                     createTestEvent("COMPLETION")
                 );
@@ -375,13 +399,14 @@ describe("WorkflowEngine", () => {
                     onCompletion: onCompletionFn,
                     isBackgroundWorkflow: true,
                 });
+                flush();
 
                 expect(onCompletionFn).not.toHaveBeenCalled();
                 awaiters[0].next(createTestEvent("E0"));
                 expect(onCompletionFn).not.toHaveBeenCalled();
                 awaiters[0].complete();
                 expect(onCompletionFn).toHaveBeenCalled();
-            });
+            }));
 
             it("can dispatch multiple events", done => {
                 const onCompletionFn = jest.fn(() => [
@@ -389,10 +414,11 @@ describe("WorkflowEngine", () => {
                     createTestEvent("C2"),
                     createTestEvent("C3"),
                 ]);
-                const { awaiters, WorkflowChanges$ } = getExecutedWorkflow(
-                    ["load"],
-                    { onCompletion: onCompletionFn, isBackgroundWorkflow: true }
-                );
+                const { awaiters, workflowChanges$: WorkflowChanges$ } =
+                    getExecutedWorkflow(["load"], {
+                        onCompletion: onCompletionFn,
+                        isBackgroundWorkflow: true,
+                    });
 
                 WorkflowChanges$.subscribe({
                     next: update => {
@@ -458,17 +484,33 @@ describe("WorkflowEngine", () => {
             stepTypes: string[],
             wfConfig?: Partial<Workflow>
         ): ReturnType<typeof getSetup> & {
-            WorkflowChanges$: Observable<WorkflowUpdate>;
+            workflowChanges$: Observable<WorkflowUpdate>;
         } {
             const setup = getSetup(stepTypes, wfConfig);
-            const WorkflowChanges$ = service.executeWorkflow(setup.workflow);
-            WorkflowChanges$.subscribe();
-            return { ...setup, WorkflowChanges$ };
+            const workflowChanges$ = service.executeWorkflow(setup.workflow);
+            return { ...setup, workflowChanges$ };
         }
 
         function getDispatchedEvent(): RxEvent | undefined {
             const calls = dispatchFn.mock.calls;
             return calls[calls.length - 1][0];
+        }
+
+        function afterExecutingWorkflow(
+            stepTypes: string[],
+            wfConfig?: Partial<Workflow>
+        ): Observable<ReturnType<typeof getSetup>> {
+            const { workflowChanges$, ...setup } = getExecutedWorkflow(
+                stepTypes,
+                wfConfig
+            );
+
+            return new Observable(subscriber =>
+                workflowChanges$.subscribe({
+                    complete: () => subscriber.next(setup),
+                    error: subscriber.error,
+                })
+            );
         }
 
         //#endregion
@@ -555,4 +597,8 @@ describe("WorkflowEngine", () => {
             });
         });
     });
+
+    const testScheduler = new TestScheduler((actual, expected) =>
+        expect(actual).toEqual(expected)
+    );
 });

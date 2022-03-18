@@ -9,8 +9,8 @@ import {
 } from "@angular/core";
 import { Actions, createEffect } from "@ngrx/effects";
 import { Store } from "@ngrx/store";
-import { Observable, Subscriber } from "rxjs";
-import { filter, map, takeWhile } from "rxjs/operators";
+import { asapScheduler, Observable, Subject, Subscriber } from "rxjs";
+import { filter, map, subscribeOn, takeWhile } from "rxjs/operators";
 
 import {
     EventCreator,
@@ -39,7 +39,7 @@ interface ExecutingWorkflow {
     doNotIndex?: boolean;
     blockingEvents?: Set<string>;
     workflow: Workflow;
-    updates$: Subscriber<WorkflowUpdate>;
+    updates$: Subject<WorkflowUpdate<WorkflowContext>>;
 }
 
 @Injectable({ providedIn: "root" })
@@ -186,23 +186,29 @@ export class WorkflowEngine {
             ? new Map<string, number>()
             : WorkflowEngine.createStepIndexByLabelMap(workflow.steps);
 
-        return new Observable<WorkflowUpdate<T>>(subscriber => {
-            this.current = {
-                workflow: workflow as Workflow,
-                context,
-                stepIndexByLabel,
-                updates$: subscriber,
-                nextStepIndex: 0,
-                doNotIndex: workflow.doNotIndex,
-            };
+        const updates$ = new Subject<WorkflowUpdate<T>>();
 
-            subscriber.next({
+        this.current = {
+            updates$: updates$ as unknown as Subject<WorkflowUpdate>,
+            workflow: workflow as Workflow,
+            context,
+            stepIndexByLabel,
+            nextStepIndex: 0,
+            doNotIndex: workflow.doNotIndex,
+        };
+
+        new Observable(() => {
+            updates$.next({
                 context,
                 type: WorkflowUpdateType.beginWorkflow,
                 workflowName: workflow.name,
             } as WorkflowUpdate<T>);
             this.activateNextStep();
-        });
+        })
+            .pipe(subscribeOn(asapScheduler))
+            .subscribe();
+
+        return updates$;
     }
 
     public registerWorkflow(
