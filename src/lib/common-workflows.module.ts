@@ -7,4 +7,4 @@ import { WorkflowEngine } from "./workflow-engine.service";
 @NgModule({
     imports: [CommonModule, EffectsModule.forFeature([WorkflowEngine])],
 })
-export class CommonWorkflowsModule {}
+export class WorkflowsModule {}
