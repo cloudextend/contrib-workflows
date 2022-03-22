@@ -116,7 +116,7 @@ describe("'load' Step Builders", () => {
             const context = createTestWorkflowContext();
 
             testScheduler.run(({ expectObservable }) => {
-                expectObservable(step.activate(context)).toBe(
+                expectObservable(step.activate(context, dependencyValue)).toBe(
                     expectedMarbles,
                     expectedEvents
                 );
