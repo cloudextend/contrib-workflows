@@ -23,10 +23,16 @@ import { navigation } from "@cloudextend/contrib/routing";
 import { Workflow } from "./workflow";
 import { WorkflowContext } from "./workflow-context";
 import { WorkflowStep } from "./workflow-step";
-import { skipSteps, nextStep, previousStep, goto } from "./workflow.events";
+import {
+    skipSteps,
+    nextStep,
+    previousStep,
+    goto,
+    idle,
+    contextUpdated,
+} from "./workflow.events";
 import { WorkflowUpdate, WorkflowUpdateType } from "./workflow-update";
 import { blockedUntil } from "./workflow.events.internal";
-import { contextUpdated, idle } from ".";
 
 export const CE_WF_FALLBACK_PATH = new InjectionToken("CloudExtend_Home_Path");
 

@@ -1,4 +1,4 @@
-import { WorkflowContext } from ".";
+import { WorkflowContext } from "./workflow-context";
 
 export enum WorkflowUpdateType {
     beginWorkflow,
